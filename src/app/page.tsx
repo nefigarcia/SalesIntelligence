@@ -40,14 +40,28 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   const handleSignIn = async () => {
-    if (!auth) return;
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Auth Not Initialized",
+        description: "Firebase Authentication is not ready. Check your .env config.",
+      });
+      return;
+    }
+
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
-    } catch (error) {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      toast({
+        title: "Welcome!",
+        description: "Successfully signed in with Google.",
+      });
+    } catch (error: any) {
+      console.error("Auth Error:", error);
       toast({
         variant: "destructive",
         title: "Sign In Failed",
-        description: "Please check your connection or try again later.",
+        description: error.message || "Please check your Firebase Console settings (Google Auth & Authorized Domains).",
       });
     }
   };
