@@ -9,6 +9,10 @@ let app: FirebaseApp | undefined;
 let db: Firestore | undefined;
 let auth: Auth | undefined;
 
+/**
+ * Initializes Firebase services and ensures they are only created once.
+ * Note: An inert comment change here triggers a security rules redeployment.
+ */
 export function initializeFirebase() {
   try {
     if (getApps().length > 0) {

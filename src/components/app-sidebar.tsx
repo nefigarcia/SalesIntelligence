@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -83,41 +82,44 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
     if (auth) signOut(auth);
   };
 
-  const handleCreateList = async (e?: React.FormEvent) => {
+  const handleCreateList = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!db || !user || !newListName.trim() || isCreating) return;
 
     setIsCreating(true);
     const listId = `list-${Date.now()}`;
     const listRef = doc(db, "users", user.uid, "lists", listId);
-    
-    setDoc(listRef, {
+    const listData = {
       name: newListName.trim(),
       count: 0,
       createdAt: serverTimestamp()
-    })
-    .then(() => {
-      toast({ title: "List Created", description: `"${newListName}" is ready for leads.` });
-      setNewListName("");
-      setIsCreateDialogOpen(false);
-    })
-    .catch(async () => {
-      const permissionError = new FirestorePermissionError({
-        path: listRef.path,
-        operation: 'create',
+    };
+    
+    // Non-blocking mutation call
+    setDoc(listRef, listData)
+      .then(() => {
+        toast({ title: "List Created", description: `"${newListName}" is ready for leads.` });
+        setNewListName("");
+        setIsCreateDialogOpen(false);
+      })
+      .catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: listRef.path,
+          operation: 'create',
+          requestResourceData: listData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsCreating(false);
       });
-      errorEmitter.emit('permission-error', permissionError);
-    })
-    .finally(() => {
-      setIsCreating(false);
-    });
   };
 
-  const handleDeleteList = async (listId: string) => {
+  const handleDeleteList = (listId: string) => {
     if (!db || !user) return;
     
     const listRef = doc(db, "users", user.uid, "lists", listId);
-    deleteDoc(listRef).catch(async () => {
+    deleteDoc(listRef).catch(async (serverError) => {
       const permissionError = new FirestorePermissionError({
         path: listRef.path,
         operation: 'delete',
