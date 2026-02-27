@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -51,18 +52,14 @@ export default function Dashboard() {
 
     try {
       const provider = new GoogleAuthProvider();
-      // Add custom parameters to handle common issues
       provider.setCustomParameters({ prompt: 'select_account' });
-      
       await signInWithPopup(auth, provider);
-      
       toast({
         title: "Welcome!",
         description: "Successfully signed in with Google.",
       });
     } catch (error: any) {
       console.error("Auth Error:", error);
-      // Detailed error surfacing for the user
       toast({
         variant: "destructive",
         title: "Sign In Failed",
@@ -74,43 +71,46 @@ export default function Dashboard() {
   const handleSearch = (query: string, location: string) => {
     setActiveView("search");
     setIsSearching(true);
-    // Simulate API call for local business search
+    setSelectedBusiness(null); // Clear selection on new search to avoid confusion
+    
+    // Simulate API call for local business search with dynamic data
     setTimeout(() => {
+      const seed = Date.now();
       const mockResults: Business[] = [
         {
-          id: "1",
-          name: "Blue Ribbon Plumbing",
-          category: "Plumber",
-          address: "123 Water St, New York, NY",
+          id: `b-${seed}-1`,
+          name: `${query || "Premium"} ${location.split(',')[0]} Services`,
+          category: query || "Professional Service",
+          address: `123 North St, ${location}`,
           phone: "(555) 123-4567",
           rating: 4.8,
           reviews: 124,
-          lat: 40.7128,
-          lng: -74.006,
+          lat: 40.7128 + (Math.random() - 0.5) * 0.05,
+          lng: -74.006 + (Math.random() - 0.5) * 0.05,
           website: "https://example.com"
         },
         {
-          id: "2",
-          name: "Gotham Dental Care",
-          category: "Dentist",
-          address: "456 Smile Ave, New York, NY",
+          id: `b-${seed}-2`,
+          name: `Elite ${query || "Business"} Group`,
+          category: query || "Local Business",
+          address: `456 Central Ave, ${location}`,
           phone: "(555) 987-6543",
           rating: 4.5,
           reviews: 89,
-          lat: 40.7306,
-          lng: -73.9352,
+          lat: 40.7306 + (Math.random() - 0.5) * 0.05,
+          lng: -73.9352 + (Math.random() - 0.5) * 0.05,
           website: "https://example.com"
         },
         {
-          id: "3",
-          name: "Apex Auto Repair",
-          category: "Auto Service",
-          address: "789 Engine Blvd, New York, NY",
+          id: `b-${seed}-3`,
+          name: `${location.split(',')[0]} ${query || "Specialist"} Hub`,
+          category: query || "Specialist",
+          address: `789 South Blvd, ${location}`,
           phone: "(555) 456-7890",
           rating: 4.2,
           reviews: 56,
-          lat: 40.7589,
-          lng: -73.9851,
+          lat: 40.7589 + (Math.random() - 0.5) * 0.05,
+          lng: -73.9851 + (Math.random() - 0.5) * 0.05,
           website: "https://example.com"
         },
       ];
@@ -118,7 +118,7 @@ export default function Dashboard() {
       setIsSearching(false);
       toast({
         title: "Search Complete",
-        description: `Found ${mockResults.length} businesses in ${location}.`,
+        description: `Found ${mockResults.length} leads for "${query}" in ${location}.`,
       });
     }, 1200);
   };
