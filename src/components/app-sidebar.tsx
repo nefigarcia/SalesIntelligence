@@ -3,7 +3,6 @@
 import { 
   Search, 
   ListOrdered, 
-  Users, 
   PieChart, 
   Download,
   PlusCircle,
@@ -46,7 +45,7 @@ import {
 
 interface AppSidebarProps {
   activeView: ViewState;
-  onViewChange: (view: ViewState, listId?: string) => void;
+  onViewChange: (view: ViewState, listId?: string | null) => void;
 }
 
 export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
@@ -82,10 +81,10 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
     .then(() => {
       toast({ title: "List Created", description: `"${listName}" is ready.` });
     })
-    .catch(async (err) => {
+    .catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: listRef.path,
-        operation: 'write',
+        operation: 'create',
       });
       errorEmitter.emit('permission-error', permissionError);
     });
@@ -93,22 +92,15 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
   const handleDeleteList = async (listId: string) => {
     if (!db || !user) return;
-    if (!confirm("Are you sure you want to delete this list and all its leads?")) return;
+    if (!confirm("Are you sure you want to delete this list? Leads inside will be inaccessible.")) return;
 
     const listRef = doc(db, "users", user.uid, "lists", listId);
-    deleteDoc(listRef).catch(async (err) => {
+    deleteDoc(listRef).catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: listRef.path,
         operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-
-  const handleExport = () => {
-    toast({
-      title: "Export Started",
-      description: "Preparing your leads CSV file...",
     });
   };
 
@@ -140,19 +132,13 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton 
-                tooltip="My Lists" 
+                tooltip="All Saved Leads" 
                 isActive={activeView === "lists"} 
                 className="text-sidebar-foreground"
-                onClick={() => onViewChange("lists")}
+                onClick={() => onViewChange("lists", null)}
               >
                 <ListOrdered className="h-5 w-5" />
-                <span>My Lists</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Analytics" isActive={activeView === "analytics"} className="text-sidebar-foreground" onClick={() => onViewChange("analytics")}>
-                <PieChart className="h-5 w-5" />
-                <span>Analytics</span>
+                <span>All Saved Leads</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -162,7 +148,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
         <SidebarGroup>
           <SidebarGroupLabel className="px-4 text-xs font-semibold uppercase text-sidebar-foreground/50 tracking-wider">
-            Lead Lists
+            Custom Lists
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -212,13 +198,13 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar-background p-4">
         <div className="flex flex-col gap-3">
-          <Button variant="outline" onClick={handleExport} className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-white">
+          <Button variant="outline" onClick={() => toast({ title: "Export Started" })} className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-white">
             <Download className="h-4 w-4 mr-2" />
-            <span className="group-data-[collapsible=icon]:hidden">Export All Leads</span>
+            <span className="group-data-[collapsible=icon]:hidden">Export Leads</span>
           </Button>
           <div className="flex items-center gap-4 px-2 py-2">
             <Avatar className="h-10 w-10 border-2 border-primary">
-              <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/100/100`} />
+              <AvatarImage src={user?.photoURL || ""} />
               <AvatarFallback>{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">

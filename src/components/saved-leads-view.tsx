@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Phone, Globe, Trash2, ExternalLink } from "lucide-react";
+import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 interface SavedLeadsViewProps {
   listId: string | null;
@@ -42,15 +44,18 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     const leadRef = doc(db, "users", user.uid, "lists", activeListId, "leads", leadId);
     const listRef = doc(db, "users", user.uid, "lists", activeListId);
 
-    try {
-      await deleteDoc(leadRef);
-      await updateDoc(listRef, {
-        count: increment(-1)
+    deleteDoc(leadRef)
+      .then(() => {
+        updateDoc(listRef, { count: increment(-1) }).catch(() => {});
+        toast({ title: "Lead Removed", description: "Business removed from list." });
+      })
+      .catch(async () => {
+        const permissionError = new FirestorePermissionError({
+          path: leadRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      toast({ title: "Lead Removed", description: "Business removed from list." });
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   if (loading) {
@@ -68,7 +73,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50">
         <div className="h-20 w-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mb-6">
-          <Star className="h-10 w-10 text-slate-200" />
+          <Search className="h-10 w-10 text-slate-200" />
         </div>
         <h2 className="text-2xl font-bold mb-2">No saved leads yet</h2>
         <p className="text-muted-foreground max-w-sm">
@@ -82,7 +87,9 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
       <div className="p-8 border-b shrink-0 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Saved Leads</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {listId ? "List Leads" : "All General Leads"}
+          </h2>
           <p className="text-muted-foreground text-sm mt-1">Manage and export your gathered business data.</p>
         </div>
         <Badge variant="outline" className="text-sm py-1.5 px-4 font-bold border-primary/20 text-primary bg-primary/5">

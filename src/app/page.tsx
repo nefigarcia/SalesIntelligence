@@ -40,18 +40,10 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   const handleSignIn = async () => {
-    if (!auth) {
-      toast({
-        variant: "destructive",
-        title: "Auth Disabled",
-        description: "Firebase Authentication is not configured.",
-      });
-      return;
-    }
+    if (!auth) return;
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
-      console.error("Sign in failed", error);
       toast({
         variant: "destructive",
         title: "Sign In Failed",
@@ -126,7 +118,7 @@ export default function Dashboard() {
         <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8">
           <SearchIcon className="h-10 w-10 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold mb-4 tracking-tight">Welcome to ClientsFinding</h1>
+        <h1 className="text-3xl font-bold mb-4 tracking-tight text-foreground">Welcome to ClientsFinding</h1>
         <p className="text-muted-foreground max-w-md mb-8">
           The smart B2B lead generation tool. Sign in to start finding and managing local business leads.
         </p>
@@ -144,7 +136,7 @@ export default function Dashboard() {
           activeView={activeView} 
           onViewChange={(view, listId) => {
             setActiveView(view);
-            if (listId) setSelectedListId(listId);
+            if (listId !== undefined) setSelectedListId(listId);
             setSelectedBusiness(null);
           }} 
         />
