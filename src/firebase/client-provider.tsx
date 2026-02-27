@@ -13,16 +13,10 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
   const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
-    try {
-      const firebaseInstances = initializeFirebase();
-      if (firebaseInstances && firebaseInstances.app) {
-        setInstances(firebaseInstances);
-      } else {
-        // Fallback or warning if config is missing
-        setError(true);
-      }
-    } catch (err) {
-      console.error("Firebase initialization failed:", err);
+    const firebaseInstances = initializeFirebase();
+    if (firebaseInstances && firebaseInstances.app && firebaseInstances.db && firebaseInstances.auth) {
+      setInstances(firebaseInstances);
+    } else {
       setError(true);
     }
   }, []);
@@ -30,19 +24,24 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
   if (error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-background p-6 text-center">
-        <h2 className="text-xl font-bold mb-2">Configuration Missing</h2>
-        <p className="text-muted-foreground mb-4 max-w-md">
-          Firebase API keys are not detected. Please add your environment variables to the .env file.
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+          <div className="w-8 h-8 border-4 border-destructive border-t-transparent rounded-full animate-spin" />
+        </div>
+        <h2 className="text-xl font-bold mb-2 text-destructive">Configuration Error</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Firebase could not be initialized. This usually means the API key is missing or invalid. Please check your .env file and Firebase console.
         </p>
-        {children}
       </div>
     );
   }
 
   if (!instances) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex h-screen items-center justify-center bg-background text-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-sm font-medium">Connecting to Firebase...</p>
+        </div>
       </div>
     );
   }

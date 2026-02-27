@@ -10,33 +10,33 @@ let db: Firestore | undefined;
 let auth: Auth | undefined;
 
 export function initializeFirebase() {
-  if (getApps().length > 0) {
-    app = getApp();
-  } else {
-    const hasConfig = 
-      firebaseConfig.apiKey && 
-      firebaseConfig.apiKey !== 'undefined' && 
-      firebaseConfig.apiKey.length > 0;
+  try {
+    if (getApps().length > 0) {
+      app = getApp();
+    } else {
+      const hasConfig = 
+        firebaseConfig.apiKey && 
+        firebaseConfig.apiKey !== 'undefined' && 
+        firebaseConfig.apiKey.length > 0;
 
-    if (!hasConfig) {
-      console.warn("Firebase configuration is missing or invalid. Dashboard features requiring a backend will be disabled.");
-      return null;
-    }
-    
-    try {
+      if (!hasConfig) {
+        console.warn("Firebase configuration is missing or invalid.");
+        return null;
+      }
+      
       app = initializeApp(firebaseConfig);
-    } catch (e) {
-      console.error("Firebase initializeApp failed", e);
-      return null;
     }
-  }
 
-  if (app) {
-    db = getFirestore(app);
-    auth = getAuth(app);
-  }
+    if (app) {
+      db = getFirestore(app);
+      auth = getAuth(app);
+    }
 
-  return { app, db, auth };
+    return { app, db, auth };
+  } catch (e) {
+    console.error("Firebase initialization failed:", e);
+    return null;
+  }
 }
 
 export * from './provider';
