@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useState } from "react";
 import { 
   Search, 
   ListOrdered, 
@@ -9,7 +11,8 @@ import {
   FolderOpen,
   LogOut,
   MoreVertical,
-  Trash2
+  Trash2,
+  FolderPlus
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,6 +45,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface AppSidebarProps {
   activeView: ViewState;
@@ -53,6 +67,10 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const auth = useAuth();
   const db = useFirestore();
   const { toast } = useToast();
+  
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -65,21 +83,23 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
     if (auth) signOut(auth);
   };
 
-  const handleCreateList = async () => {
-    if (!db || !user) return;
-    const listName = window.prompt("Enter list name:");
-    if (!listName) return;
+  const handleCreateList = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!db || !user || !newListName.trim() || isCreating) return;
 
+    setIsCreating(true);
     const listId = `list-${Date.now()}`;
     const listRef = doc(db, "users", user.uid, "lists", listId);
     
     setDoc(listRef, {
-      name: listName,
+      name: newListName.trim(),
       count: 0,
       createdAt: serverTimestamp()
     })
     .then(() => {
-      toast({ title: "List Created", description: `"${listName}" is ready.` });
+      toast({ title: "List Created", description: `"${newListName}" is ready for leads.` });
+      setNewListName("");
+      setIsCreateDialogOpen(false);
     })
     .catch(async () => {
       const permissionError = new FirestorePermissionError({
@@ -87,13 +107,15 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
         operation: 'create',
       });
       errorEmitter.emit('permission-error', permissionError);
+    })
+    .finally(() => {
+      setIsCreating(false);
     });
   };
 
   const handleDeleteList = async (listId: string) => {
     if (!db || !user) return;
-    if (!confirm("Are you sure you want to delete this list? Leads inside will be inaccessible.")) return;
-
+    
     const listRef = doc(db, "users", user.uid, "lists", listId);
     deleteDoc(listRef).catch(async () => {
       const permissionError = new FirestorePermissionError({
@@ -108,7 +130,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border bg-sidebar-background">
         <div className="flex items-center gap-3 px-4 w-full">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20">
             <Search className="h-5 w-5" />
           </div>
           <span className="text-lg font-bold tracking-tight text-white group-data-[collapsible=icon]:hidden">
@@ -123,7 +145,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
               <SidebarMenuButton 
                 tooltip="Search Leads" 
                 isActive={activeView === "search"} 
-                className="text-sidebar-foreground"
+                className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                 onClick={() => onViewChange("search")}
               >
                 <Search className="h-5 w-5" />
@@ -133,8 +155,8 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
             <SidebarMenuItem>
               <SidebarMenuButton 
                 tooltip="All Saved Leads" 
-                isActive={activeView === "lists"} 
-                className="text-sidebar-foreground"
+                isActive={activeView === "lists" && !savedLists?.find(l => l.id === activeView)} 
+                className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                 onClick={() => onViewChange("lists", null)}
               >
                 <ListOrdered className="h-5 w-5" />
@@ -144,75 +166,125 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarSeparator className="mx-4 opacity-20" />
+        <SidebarSeparator className="mx-4 opacity-10" />
 
         <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-xs font-semibold uppercase text-sidebar-foreground/50 tracking-wider">
-            Custom Lists
+          <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase text-sidebar-foreground/40 tracking-widest">
+            Your Custom Lists
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {loading ? (
-                <div className="px-4 py-2 text-xs text-sidebar-foreground/50">Loading lists...</div>
+                <div className="px-4 py-2 text-xs text-sidebar-foreground/30 animate-pulse">Loading lists...</div>
               ) : savedLists?.map((list) => (
                 <SidebarMenuItem key={list.id}>
                   <SidebarMenuButton 
                     tooltip={list.name} 
-                    className="text-sidebar-foreground"
+                    className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                     onClick={() => onViewChange("lists", list.id)}
                   >
-                    <FolderOpen className="h-4 w-4" />
+                    <FolderOpen className="h-4 w-4 text-secondary/70" />
                     <span>{list.name}</span>
-                    <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">
+                    <SidebarMenuBadge className="bg-sidebar-accent/50 text-sidebar-foreground/70 border border-sidebar-border/50">
                       {list.count || 0}
                     </SidebarMenuBadge>
                   </SidebarMenuButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <SidebarMenuAction showOnHover>
-                        <MoreVertical className="h-4 w-4" />
+                        <MoreVertical className="h-4 w-4 opacity-50" />
                       </SidebarMenuAction>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start">
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteList(list.id)}>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteList(list.id)}>
                         <Trash2 className="h-4 w-4 mr-2" /> Delete List
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </SidebarMenuItem>
               ))}
+              
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  tooltip="New List" 
-                  className="text-accent hover:text-accent-foreground"
-                  onClick={handleCreateList}
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Create New List</span>
-                </SidebarMenuButton>
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <SidebarMenuButton 
+                      tooltip="New List" 
+                      className="text-secondary hover:text-white transition-colors"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      <span>Create New List</span>
+                    </SidebarMenuButton>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <FolderPlus className="h-5 w-5 text-primary" />
+                        Create New Lead List
+                      </DialogTitle>
+                      <DialogDescription>
+                        Give your list a name to organize your gathered leads by industry or location.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateList}>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">List Name</Label>
+                          <Input
+                            id="name"
+                            placeholder="e.g. New York Plumbers"
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            className="col-span-3"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button 
+                          type="submit" 
+                          disabled={isCreating || !newListName.trim()}
+                          className="w-full sm:w-auto"
+                        >
+                          {isCreating ? "Creating..." : "Create List"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border bg-sidebar-background p-4">
-        <div className="flex flex-col gap-3">
-          <Button variant="outline" onClick={() => toast({ title: "Export Started" })} className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-white">
+      <SidebarFooter className="border-t border-sidebar-border/30 bg-sidebar-background p-4">
+        <div className="flex flex-col gap-4">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => toast({ title: "Export Started", description: "Generating your CSV file..." })} 
+            className="w-full bg-sidebar-accent/30 border-sidebar-border/30 text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white transition-all"
+          >
             <Download className="h-4 w-4 mr-2" />
             <span className="group-data-[collapsible=icon]:hidden">Export Leads</span>
           </Button>
-          <div className="flex items-center gap-4 px-2 py-2">
-            <Avatar className="h-10 w-10 border-2 border-primary">
+          <div className="flex items-center gap-3 px-1 py-1">
+            <Avatar className="h-9 w-9 border-2 border-primary/40">
               <AvatarImage src={user?.photoURL || ""} />
-              <AvatarFallback>{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
+              <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                {user?.displayName?.charAt(0) || user?.email?.charAt(0).toUpperCase() || "U"}
+              </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold truncate text-white">{user?.displayName || "User"}</span>
-              <span className="text-xs text-sidebar-foreground/70 truncate leading-none">{user?.email}</span>
+            <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden flex-1">
+              <span className="text-xs font-bold truncate text-white">{user?.displayName || user?.email?.split('@')[0]}</span>
+              <span className="text-[10px] text-sidebar-foreground/40 truncate leading-none mt-0.5">{user?.email}</span>
             </div>
-            <button onClick={handleSignOut} className="ml-auto group-data-[collapsible=icon]:hidden">
-              <LogOut className="h-4 w-4 text-sidebar-foreground/50 hover:text-white transition-colors" />
+            <button 
+              onClick={handleSignOut} 
+              className="p-1.5 rounded-md hover:bg-destructive/10 text-sidebar-foreground/30 hover:text-destructive transition-colors group-data-[collapsible=icon]:hidden"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
