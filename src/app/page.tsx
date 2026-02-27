@@ -51,13 +51,18 @@ export default function Dashboard() {
 
     try {
       const provider = new GoogleAuthProvider();
+      // Add custom parameters to handle common issues
+      provider.setCustomParameters({ prompt: 'select_account' });
+      
       await signInWithPopup(auth, provider);
+      
       toast({
         title: "Welcome!",
         description: "Successfully signed in with Google.",
       });
     } catch (error: any) {
       console.error("Auth Error:", error);
+      // Detailed error surfacing for the user
       toast({
         variant: "destructive",
         title: "Sign In Failed",
