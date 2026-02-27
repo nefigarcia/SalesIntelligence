@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Business } from "@/app/page";
@@ -16,7 +15,9 @@ import {
   Building2,
   Clock,
   ShieldCheck,
-  Check
+  Check,
+  ChevronDown,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +26,18 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useUser, useFirestore, useCollection } from "@/firebase";
-import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, increment, runTransaction } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { useMemoFirebase } from "@/firebase/firestore/use-collection";
 import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface BusinessDetailProps {
   business: Business;
@@ -42,48 +50,59 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
   const db = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
 
-  // Check if lead is already saved in "General Leads" list
-  const leadsQuery = useMemoFirebase(() => {
+  // Get user's lists
+  const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return collection(db, "users", user.uid, "lists", "general", "leads");
+    return collection(db, "users", user.uid, "lists");
   }, [db, user]);
 
-  const { data: savedLeads } = useCollection(leadsQuery);
-  const isAlreadySaved = savedLeads?.some(l => l.id === business.id);
+  const { data: userLists } = useCollection(listsQuery);
 
-  const handleSaveLead = async () => {
-    if (!db || !user || isAlreadySaved) return;
+  const handleSaveLead = async (listId: string = "general", listName: string = "General Leads") => {
+    if (!db || !user) return;
     
     setIsSaving(true);
-    const leadRef = doc(db, "users", user.uid, "lists", "general", "leads", business.id);
-    const listRef = doc(db, "users", user.uid, "lists", "general");
+    const listRef = doc(db, "users", user.uid, "lists", listId);
+    const leadRef = doc(db, "users", user.uid, "lists", listId, "leads", business.id);
 
-    // Ensure the list exists first (simple check/write)
-    setDoc(listRef, {
-      name: "General Leads",
-      count: (savedLeads?.length || 0) + 1,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
+    try {
+      await runTransaction(db, async (transaction) => {
+        const listDoc = await transaction.get(listRef);
+        
+        if (!listDoc.exists()) {
+          transaction.set(listRef, {
+            name: listName,
+            count: 1,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          transaction.update(listRef, {
+            count: increment(1),
+            updatedAt: serverTimestamp()
+          });
+        }
+        
+        transaction.set(leadRef, {
+          ...business,
+          savedAt: serverTimestamp(),
+        });
+      });
 
-    setDoc(leadRef, {
-      ...business,
-      savedAt: serverTimestamp(),
-    })
-    .then(() => {
       toast({
         title: "Lead Saved",
-        description: `${business.name} added to "General Leads" list.`,
+        description: `${business.name} added to "${listName}".`,
       });
-    })
-    .catch(async (err) => {
+    } catch (err: any) {
       const permissionError = new FirestorePermissionError({
         path: leadRef.path,
         operation: 'write',
         requestResourceData: business,
       });
       errorEmitter.emit('permission-error', permissionError);
-    })
-    .finally(() => setIsSaving(false));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -105,6 +124,7 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
             alt={business.name}
             fill
             className="object-cover"
+            data-ai-hint="business exterior"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">
@@ -117,9 +137,9 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
 
         <div className="p-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="bg-primary/5 p-3 rounded-2xl border border-primary/10">
+            <div className="bg-primary/5 p-3 rounded-2xl border border-primary/10 text-center min-w-[64px]">
               <div className="text-2xl font-bold text-primary">{business.rating}</div>
-              <div className="flex items-center gap-0.5 mt-0.5">
+              <div className="flex items-center justify-center gap-0.5 mt-0.5">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className={cn("h-2.5 w-2.5", i < Math.floor(business.rating) ? "fill-primary text-primary" : "text-muted")} />
                 ))}
@@ -133,17 +153,43 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <Button 
-              className={cn("w-full rounded-xl py-6", isAlreadySaved ? "bg-green-600 hover:bg-green-700" : "bg-primary hover:bg-primary/90")} 
-              onClick={handleSaveLead}
-              disabled={isSaving || isAlreadySaved}
-            >
-              {isAlreadySaved ? <Check className="h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
-              {isAlreadySaved ? "Saved" : "Save Lead"}
-            </Button>
-            <Button variant="outline" className="w-full border-slate-200 rounded-xl py-6">
-              <Mail className="h-4 w-4 mr-2" /> Contact
+          <div className="flex flex-col gap-3 mb-6">
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 rounded-xl py-6 bg-primary hover:bg-primary/90" 
+                onClick={() => handleSaveLead("general", "General Leads")}
+                disabled={isSaving}
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                Quick Save
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="px-3 rounded-xl border-slate-200" disabled={isSaving}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase">Save to List</div>
+                  {userLists?.length === 0 && (
+                    <div className="px-2 py-2 text-xs text-muted-foreground italic">No custom lists yet</div>
+                  )}
+                  {userLists?.map(list => (
+                    <DropdownMenuItem key={list.id} onClick={() => handleSaveLead(list.id, list.name)}>
+                      {list.name}
+                    </DropdownMenuItem>
+                  ))}
+                  <Separator className="my-1" />
+                  <DropdownMenuItem onClick={() => toast({ title: "Coming Soon", description: "Create a list in the sidebar first." })}>
+                    <PlusCircle className="h-4 w-4 mr-2" /> New List...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            
+            <Button variant="outline" className="w-full border-slate-200 rounded-xl py-6" onClick={() => window.open(`tel:${business.phone}`)}>
+              <Mail className="h-4 w-4 mr-2" /> Contact Business
             </Button>
           </div>
 
@@ -165,19 +211,10 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Globe className="h-4 w-4 text-slate-600" /></div>
-                  <div className="text-sm text-primary hover:underline cursor-pointer font-medium">{business.website?.replace('https://', '')}</div>
+                  <div className="text-sm text-primary hover:underline cursor-pointer font-medium" onClick={() => business.website && window.open(business.website)}>
+                    {business.website?.replace('https://', '') || 'No website available'}
+                  </div>
                 </div>
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
-                <Clock className="h-3 w-3" /> Business Hours
-              </h3>
-              <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-xs">
-                <div className="flex justify-between items-center"><span className="font-medium">Mon - Fri</span><span>08:00 AM - 06:00 PM</span></div>
-                <div className="flex justify-between items-center"><span className="font-medium">Sat</span><span>09:00 AM - 04:00 PM</span></div>
-                <div className="flex justify-between items-center text-muted-foreground"><span className="font-medium">Sun</span><span>Closed</span></div>
               </div>
             </section>
           </div>
@@ -185,14 +222,10 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
       </ScrollArea>
 
       <div className="p-4 border-t bg-slate-50 shrink-0">
-        <Button variant="outline" className="w-full bg-white border-slate-200 hover:bg-slate-50">
+        <Button variant="outline" className="w-full bg-white border-slate-200 hover:bg-slate-50" onClick={() => toast({ title: "Feature locked", description: "Meeting scheduler requires Pro plan." })}>
           <Calendar className="h-4 w-4 mr-2 text-secondary" /> Schedule a Meeting
         </Button>
       </div>
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(' ');
 }

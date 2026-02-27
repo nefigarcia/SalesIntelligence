@@ -1,16 +1,17 @@
-
 "use client";
 
 import { 
   Search, 
   ListOrdered, 
   Users, 
-  Settings, 
   PieChart, 
   Download,
   PlusCircle,
   FolderOpen,
-  LogOut
+  LogOut,
+  Settings,
+  MoreVertical,
+  Trash2
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,6 +22,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
@@ -28,9 +30,18 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUser, useAuth, useFirestore, useCollection } from "@/firebase";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/firestore/use-collection";
 import { signOut } from "firebase/auth";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navMain = [
   { title: "Search Leads", icon: Search, isActive: true },
@@ -43,10 +54,11 @@ export function AppSidebar() {
   const { user } = useUser();
   const auth = useAuth();
   const db = useFirestore();
+  const { toast } = useToast();
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return collection(db, "users", user.uid, "lists");
+    return query(collection(db, "users", user.uid, "lists"), orderBy("createdAt", "desc"));
   }, [db, user]);
 
   const { data: savedLists, loading } = useCollection(listsQuery);
@@ -57,13 +69,47 @@ export function AppSidebar() {
 
   const handleCreateList = async () => {
     if (!db || !user) return;
+    const listName = window.prompt("Enter list name:");
+    if (!listName) return;
+
     const listId = `list-${Date.now()}`;
     const listRef = doc(db, "users", user.uid, "lists", listId);
     
     setDoc(listRef, {
-      name: "New Lead List",
+      name: listName,
       count: 0,
       createdAt: serverTimestamp()
+    })
+    .then(() => {
+      toast({ title: "List Created", description: `"${listName}" is ready.` });
+    })
+    .catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: listRef.path,
+        operation: 'write',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  const handleDeleteList = async (listId: string) => {
+    if (!db || !user) return;
+    if (!confirm("Are you sure you want to delete this list and all its leads?")) return;
+
+    const listRef = doc(db, "users", user.uid, "lists", listId);
+    deleteDoc(listRef).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: listRef.path,
+        operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  const handleExport = () => {
+    toast({
+      title: "Export Started",
+      description: "Preparing your leads CSV file...",
     });
   };
 
@@ -105,13 +151,25 @@ export function AppSidebar() {
                 <div className="px-4 py-2 text-xs text-sidebar-foreground/50">Loading lists...</div>
               ) : savedLists?.map((list) => (
                 <SidebarMenuItem key={list.id}>
-                  <SidebarMenuButton tooltip={list.name} className="text-sidebar-foreground group-data-[collapsible=icon]:hidden">
+                  <SidebarMenuButton tooltip={list.name} className="text-sidebar-foreground">
                     <FolderOpen className="h-4 w-4" />
                     <span>{list.name}</span>
-                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-accent text-xs font-bold text-sidebar-accent-foreground">
+                    <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">
                       {list.count || 0}
-                    </span>
+                    </SidebarMenuBadge>
                   </SidebarMenuButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuAction showOnHover>
+                        <MoreVertical className="h-4 w-4" />
+                      </SidebarMenuAction>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start">
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteList(list.id)}>
+                        <Trash2 className="h-4 w-4 mr-2" /> Delete List
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </SidebarMenuItem>
               ))}
               <SidebarMenuItem>
@@ -131,14 +189,14 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar-background p-4">
         <div className="flex flex-col gap-3">
-          <Button variant="outline" className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-white group-data-[collapsible=icon]:p-0">
-            <Download className="h-4 w-4 mr-2 group-data-[collapsible=icon]:mr-0" />
+          <Button variant="outline" onClick={handleExport} className="w-full bg-sidebar-accent border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/80 hover:text-white">
+            <Download className="h-4 w-4 mr-2" />
             <span className="group-data-[collapsible=icon]:hidden">Export All Leads</span>
           </Button>
           <div className="flex items-center gap-4 px-2 py-2">
             <Avatar className="h-10 w-10 border-2 border-primary">
-              <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/user/100/100"} />
-              <AvatarFallback>{user?.displayName?.charAt(0) || "CF"}</AvatarFallback>
+              <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/100/100`} />
+              <AvatarFallback>{user?.displayName?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
               <span className="text-sm font-semibold truncate text-white">{user?.displayName || "User"}</span>
