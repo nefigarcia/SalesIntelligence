@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -8,6 +7,7 @@ import { SearchHeader } from "@/components/search-header";
 import { MapView } from "@/components/map-view";
 import { BusinessList } from "@/components/business-list";
 import { BusinessDetail } from "@/components/business-detail";
+import { SavedLeadsView } from "@/components/saved-leads-view";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,13 @@ export type Business = {
   website?: string;
 };
 
+export type ViewState = "search" | "lists" | "analytics";
+
 export default function Dashboard() {
   const { user, loading: userLoading } = useUser();
   const auth = useAuth();
+  const [activeView, setActiveView] = useState<ViewState>("search");
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -41,10 +45,16 @@ export default function Dashboard() {
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
       console.error("Sign in failed", error);
+      toast({
+        variant: "destructive",
+        title: "Sign In Failed",
+        description: "Please check your connection or try again later.",
+      });
     }
   };
 
   const handleSearch = (query: string, location: string) => {
+    setActiveView("search");
     setIsSearching(true);
     // Simulate API call for local business search
     setTimeout(() => {
@@ -123,35 +133,53 @@ export default function Dashboard() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background overflow-hidden font-body">
-        <AppSidebar />
+        <AppSidebar 
+          activeView={activeView} 
+          onViewChange={(view, listId) => {
+            setActiveView(view);
+            if (listId) setSelectedListId(listId);
+            setSelectedBusiness(null);
+          }} 
+        />
         <SidebarInset className="flex flex-col h-screen">
           <header className="flex h-16 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
             <SearchHeader onSearch={handleSearch} isLoading={isSearching} />
           </header>
-          <div className="flex-1 flex flex-row overflow-hidden relative">
-            <div className="flex-1 relative h-full">
-              <MapView 
-                results={searchResults} 
-                onMarkerClick={(b) => setSelectedBusiness(b)} 
-                selectedBusiness={selectedBusiness}
-              />
-            </div>
+          
+          <main className="flex-1 flex flex-row overflow-hidden relative">
+            {activeView === "search" ? (
+              <>
+                <div className="flex-1 relative h-full">
+                  <MapView 
+                    results={searchResults} 
+                    onMarkerClick={(b) => setSelectedBusiness(b)} 
+                    selectedBusiness={selectedBusiness}
+                  />
+                </div>
 
-            <div className="w-96 border-l bg-white flex flex-col shrink-0 z-10 shadow-lg">
-              {selectedBusiness ? (
-                <BusinessDetail 
-                  business={selectedBusiness} 
-                  onClose={() => setSelectedBusiness(null)} 
-                />
-              ) : (
-                <BusinessList 
-                  results={searchResults} 
-                  isLoading={isSearching}
-                  onSelect={(b) => setSelectedBusiness(b)}
-                />
-              )}
-            </div>
-          </div>
+                <div className="w-96 border-l bg-white flex flex-col shrink-0 z-10 shadow-lg">
+                  {selectedBusiness ? (
+                    <BusinessDetail 
+                      business={selectedBusiness} 
+                      onClose={() => setSelectedBusiness(null)} 
+                    />
+                  ) : (
+                    <BusinessList 
+                      results={searchResults} 
+                      isLoading={isSearching}
+                      onSelect={(b) => setSelectedBusiness(b)}
+                    />
+                  )}
+                </div>
+              </>
+            ) : activeView === "lists" ? (
+              <SavedLeadsView listId={selectedListId} />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                Analytics dashboard coming soon.
+              </div>
+            )}
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>

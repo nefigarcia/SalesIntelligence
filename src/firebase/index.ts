@@ -13,9 +13,10 @@ export function initializeFirebase() {
   if (getApps().length > 0) {
     app = getApp();
   } else {
-    // Only initialize if we have at least an API key to avoid crash
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'undefined') {
-      console.warn("Firebase API Key is missing. Check your environment variables.");
+    // Basic validation to prevent crashing on missing keys during build/init
+    const hasConfig = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined';
+    if (!hasConfig) {
+      console.warn("Firebase configuration is missing or invalid. Check your environment variables.");
     }
     app = initializeApp(firebaseConfig);
   }

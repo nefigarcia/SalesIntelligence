@@ -9,7 +9,6 @@ import {
   PlusCircle,
   FolderOpen,
   LogOut,
-  Settings,
   MoreVertical,
   Trash2
 } from "lucide-react";
@@ -26,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  SidebarMenuBadge,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { signOut } from "firebase/auth";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { useToast } from "@/hooks/use-toast";
+import { ViewState } from "@/app/page";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,14 +44,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navMain = [
-  { title: "Search Leads", icon: Search, isActive: true },
-  { title: "My Lists", icon: ListOrdered },
-  { title: "Clients", icon: Users },
-  { title: "Analytics", icon: PieChart },
-];
+interface AppSidebarProps {
+  activeView: ViewState;
+  onViewChange: (view: ViewState, listId?: string) => void;
+}
 
-export function AppSidebar() {
+export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const { user } = useUser();
   const auth = useAuth();
   const db = useFirestore();
@@ -128,14 +127,34 @@ export function AppSidebar() {
       <SidebarContent className="bg-sidebar-background py-4">
         <SidebarGroup>
           <SidebarMenu>
-            {navMain.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton tooltip={item.title} isActive={item.isActive} className="text-sidebar-foreground">
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            <SidebarMenuItem>
+              <SidebarMenuButton 
+                tooltip="Search Leads" 
+                isActive={activeView === "search"} 
+                className="text-sidebar-foreground"
+                onClick={() => onViewChange("search")}
+              >
+                <Search className="h-5 w-5" />
+                <span>Search Leads</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton 
+                tooltip="My Lists" 
+                isActive={activeView === "lists"} 
+                className="text-sidebar-foreground"
+                onClick={() => onViewChange("lists")}
+              >
+                <ListOrdered className="h-5 w-5" />
+                <span>My Lists</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="Analytics" isActive={activeView === "analytics"} className="text-sidebar-foreground" onClick={() => onViewChange("analytics")}>
+                <PieChart className="h-5 w-5" />
+                <span>Analytics</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
 
@@ -151,7 +170,11 @@ export function AppSidebar() {
                 <div className="px-4 py-2 text-xs text-sidebar-foreground/50">Loading lists...</div>
               ) : savedLists?.map((list) => (
                 <SidebarMenuItem key={list.id}>
-                  <SidebarMenuButton tooltip={list.name} className="text-sidebar-foreground">
+                  <SidebarMenuButton 
+                    tooltip={list.name} 
+                    className="text-sidebar-foreground"
+                    onClick={() => onViewChange("lists", list.id)}
+                  >
                     <FolderOpen className="h-4 w-4" />
                     <span>{list.name}</span>
                     <SidebarMenuBadge className="bg-sidebar-accent text-sidebar-accent-foreground">
