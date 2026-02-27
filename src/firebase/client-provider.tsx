@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,9 +15,11 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
 
   useEffect(() => {
     const firebaseInstances = initializeFirebase();
+    // Only set instances if all required services are successfully initialized
     if (firebaseInstances && firebaseInstances.app && firebaseInstances.db && firebaseInstances.auth) {
       setInstances(firebaseInstances);
     } else {
+      // If we got null back, it means config is missing or invalid
       setError(true);
     }
   }, []);
@@ -29,8 +32,13 @@ export function FirebaseClientProvider({ children }: { children: React.ReactNode
         </div>
         <h2 className="text-xl font-bold mb-2 text-destructive">Configuration Error</h2>
         <p className="text-muted-foreground mb-6 max-w-md">
-          Firebase could not be initialized. This usually means the API key is missing or invalid. Please check your .env file and Firebase console.
+          Firebase could not be initialized. This usually means the API key in your <strong>.env</strong> file is missing or invalid.
         </p>
+        <div className="bg-slate-50 p-4 rounded-lg text-left text-xs font-mono border max-w-lg overflow-auto">
+          <p className="mb-2 font-bold text-slate-700">Check your .env file for:</p>
+          <p>NEXT_PUBLIC_FIREBASE_API_KEY=...</p>
+          <p>NEXT_PUBLIC_FIREBASE_PROJECT_ID=studio-1275639087-a4e7e</p>
+        </div>
       </div>
     );
   }
