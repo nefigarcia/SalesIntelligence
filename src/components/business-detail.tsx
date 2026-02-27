@@ -13,10 +13,10 @@ import {
   ChevronLeft,
   Mail,
   Calendar,
-  MessageSquare,
-  ShieldCheck,
   Building2,
-  Clock
+  Clock,
+  ShieldCheck,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { useUser, useFirestore, useCollection } from "@/firebase";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+import { useMemoFirebase } from "@/firebase/firestore/use-collection";
+import { useState } from "react";
 
 interface BusinessDetailProps {
   business: Business;
@@ -32,12 +38,52 @@ interface BusinessDetailProps {
 
 export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
   const { toast } = useToast();
+  const { user } = useUser();
+  const db = useFirestore();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveLead = () => {
-    toast({
-      title: "Lead Saved",
-      description: `${business.name} added to "My New Leads" list.`,
-    });
+  // Check if lead is already saved in "General Leads" list
+  const leadsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return collection(db, "users", user.uid, "lists", "general", "leads");
+  }, [db, user]);
+
+  const { data: savedLeads } = useCollection(leadsQuery);
+  const isAlreadySaved = savedLeads?.some(l => l.id === business.id);
+
+  const handleSaveLead = async () => {
+    if (!db || !user || isAlreadySaved) return;
+    
+    setIsSaving(true);
+    const leadRef = doc(db, "users", user.uid, "lists", "general", "leads", business.id);
+    const listRef = doc(db, "users", user.uid, "lists", "general");
+
+    // Ensure the list exists first (simple check/write)
+    setDoc(listRef, {
+      name: "General Leads",
+      count: (savedLeads?.length || 0) + 1,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    setDoc(leadRef, {
+      ...business,
+      savedAt: serverTimestamp(),
+    })
+    .then(() => {
+      toast({
+        title: "Lead Saved",
+        description: `${business.name} added to "General Leads" list.`,
+      });
+    })
+    .catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: leadRef.path,
+        operation: 'write',
+        requestResourceData: business,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    })
+    .finally(() => setIsSaving(false));
   };
 
   return (
@@ -53,7 +99,6 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
       </div>
 
       <ScrollArea className="flex-1">
-        {/* Business Header Image/Visual */}
         <div className="relative h-48 bg-slate-200 overflow-hidden">
           <Image 
             src={`https://picsum.photos/seed/${business.id}/600/300`} 
@@ -89,8 +134,13 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <Button className="w-full bg-primary hover:bg-primary/90 rounded-xl py-6" onClick={handleSaveLead}>
-              <PlusCircle className="h-4 w-4 mr-2" /> Save Lead
+            <Button 
+              className={cn("w-full rounded-xl py-6", isAlreadySaved ? "bg-green-600 hover:bg-green-700" : "bg-primary hover:bg-primary/90")} 
+              onClick={handleSaveLead}
+              disabled={isSaving || isAlreadySaved}
+            >
+              {isAlreadySaved ? <Check className="h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+              {isAlreadySaved ? "Saved" : "Save Lead"}
             </Button>
             <Button variant="outline" className="w-full border-slate-200 rounded-xl py-6">
               <Mail className="h-4 w-4 mr-2" /> Contact

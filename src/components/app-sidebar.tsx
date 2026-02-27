@@ -9,7 +9,8 @@ import {
   PieChart, 
   Download,
   PlusCircle,
-  FolderOpen
+  FolderOpen,
+  LogOut
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +27,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useUser, useAuth, useFirestore, useCollection } from "@/firebase";
+import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useMemoFirebase } from "@/firebase/firestore/use-collection";
+import { signOut } from "firebase/auth";
 
 const navMain = [
   { title: "Search Leads", icon: Search, isActive: true },
@@ -34,13 +39,34 @@ const navMain = [
   { title: "Analytics", icon: PieChart },
 ];
 
-const savedLists = [
-  { name: "Plumbers - NY", count: 12 },
-  { name: "Dentists - Brooklyn", count: 8 },
-  { name: "Tech Firms - SFO", count: 24 },
-];
-
 export function AppSidebar() {
+  const { user } = useUser();
+  const auth = useAuth();
+  const db = useFirestore();
+
+  const listsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return collection(db, "users", user.uid, "lists");
+  }, [db, user]);
+
+  const { data: savedLists, loading } = useCollection(listsQuery);
+
+  const handleSignOut = () => {
+    if (auth) signOut(auth);
+  };
+
+  const handleCreateList = async () => {
+    if (!db || !user) return;
+    const listId = `list-${Date.now()}`;
+    const listRef = doc(db, "users", user.uid, "lists", listId);
+    
+    setDoc(listRef, {
+      name: "New Lead List",
+      count: 0,
+      createdAt: serverTimestamp()
+    });
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border bg-sidebar-background">
@@ -75,19 +101,25 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {savedLists.map((list) => (
-                <SidebarMenuItem key={list.name}>
+              {loading ? (
+                <div className="px-4 py-2 text-xs text-sidebar-foreground/50">Loading lists...</div>
+              ) : savedLists?.map((list) => (
+                <SidebarMenuItem key={list.id}>
                   <SidebarMenuButton tooltip={list.name} className="text-sidebar-foreground group-data-[collapsible=icon]:hidden">
                     <FolderOpen className="h-4 w-4" />
                     <span>{list.name}</span>
                     <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-sidebar-accent text-xs font-bold text-sidebar-accent-foreground">
-                      {list.count}
+                      {list.count || 0}
                     </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="New List" className="text-accent hover:text-accent-foreground">
+                <SidebarMenuButton 
+                  tooltip="New List" 
+                  className="text-accent hover:text-accent-foreground"
+                  onClick={handleCreateList}
+                >
                   <PlusCircle className="h-4 w-4" />
                   <span>Create New List</span>
                 </SidebarMenuButton>
@@ -105,14 +137,16 @@ export function AppSidebar() {
           </Button>
           <div className="flex items-center gap-4 px-2 py-2">
             <Avatar className="h-10 w-10 border-2 border-primary">
-              <AvatarImage src="https://picsum.photos/seed/user/100/100" />
-              <AvatarFallback>CF</AvatarFallback>
+              <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/user/100/100"} />
+              <AvatarFallback>{user?.displayName?.charAt(0) || "CF"}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-semibold truncate text-white">John Doe</span>
-              <span className="text-xs text-sidebar-foreground/70 truncate leading-none">john@clientsfinding.com</span>
+              <span className="text-sm font-semibold truncate text-white">{user?.displayName || "User"}</span>
+              <span className="text-xs text-sidebar-foreground/70 truncate leading-none">{user?.email}</span>
             </div>
-            <Settings className="h-5 w-5 ml-auto text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden" />
+            <button onClick={handleSignOut} className="ml-auto group-data-[collapsible=icon]:hidden">
+              <LogOut className="h-4 w-4 text-sidebar-foreground/50 hover:text-white transition-colors" />
+            </button>
           </div>
         </div>
       </SidebarFooter>

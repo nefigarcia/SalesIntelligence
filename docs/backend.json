@@ -1,0 +1,47 @@
+
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "A business lead saved by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "website": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "savedAt"]
+    },
+    "LeadList": {
+      "title": "Lead List",
+      "description": "A collection of leads organized by the user.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "count": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}/lists/{listId}": {
+      "schema": "#/entities/LeadList",
+      "description": "User's lead lists."
+    },
+    "/users/{userId}/lists/{listId}/leads/{leadId}": {
+      "schema": "#/entities/Lead",
+      "description": "Leads within a specific list."
+    }
+  }
+}

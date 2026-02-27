@@ -9,6 +9,10 @@ import { MapView } from "@/components/map-view";
 import { BusinessList } from "@/components/business-list";
 import { BusinessDetail } from "@/components/business-detail";
 import { useToast } from "@/hooks/use-toast";
+import { useUser, useAuth } from "@/firebase";
+import { Button } from "@/components/ui/button";
+import { LogIn, Search as SearchIcon } from "lucide-react";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export type Business = {
   id: string;
@@ -24,10 +28,21 @@ export type Business = {
 };
 
 export default function Dashboard() {
+  const { user, loading: userLoading } = useUser();
+  const auth = useAuth();
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
+
+  const handleSignIn = async () => {
+    if (!auth) return;
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (error) {
+      console.error("Sign in failed", error);
+    }
+  };
 
   const handleSearch = (query: string, location: string) => {
     setIsSearching(true);
@@ -80,6 +95,31 @@ export default function Dashboard() {
     }, 1200);
   };
 
+  if (userLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background p-6 text-center">
+        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8">
+          <SearchIcon className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold mb-4 tracking-tight">Welcome to ClientsFinding</h1>
+        <p className="text-muted-foreground max-w-md mb-8">
+          The smart B2B lead generation tool. Sign in to start finding and managing local business leads.
+        </p>
+        <Button onClick={handleSignIn} size="lg" className="rounded-full px-8 py-6 text-lg font-semibold gap-2">
+          <LogIn className="h-5 w-5" /> Sign in with Google
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background overflow-hidden font-body">
@@ -89,7 +129,6 @@ export default function Dashboard() {
             <SearchHeader onSearch={handleSearch} isLoading={isSearching} />
           </header>
           <div className="flex-1 flex flex-row overflow-hidden relative">
-            {/* Main Interactive Map */}
             <div className="flex-1 relative h-full">
               <MapView 
                 results={searchResults} 
@@ -98,7 +137,6 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Side Results Panel */}
             <div className="w-96 border-l bg-white flex flex-col shrink-0 z-10 shadow-lg">
               {selectedBusiness ? (
                 <BusinessDetail 
