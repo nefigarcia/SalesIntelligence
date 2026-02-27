@@ -1,0 +1,17 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "logo",
+      "description": "ClientsFinding professional logo",
+      "imageUrl": "https://picsum.photos/seed/clientsfinding-logo/200/200",
+      "imageHint": "professional abstract logo"
+    },
+    {
+      "id": "map-placeholder",
+      "description": "City map background",
+      "imageUrl": "https://picsum.photos/seed/city-map/1200/800",
+      "imageHint": "city map aerial"
+    }
+  ]
+}
