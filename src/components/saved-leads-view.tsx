@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search } from "lucide-react";
+import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -101,7 +100,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
 
       <div className="flex-1 overflow-auto">
         <Table>
-          <TableHeader className="bg-slate-50/80 sticky top-0_z-10">
+          <TableHeader className="bg-slate-50/80 sticky top-0 z-10">
             <TableRow>
               <TableHead className="w-[300px]">Business Name</TableHead>
               <TableHead>Category</TableHead>
@@ -135,6 +134,14 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                         onClick={() => window.open(lead.website)}
                       >
                         <Globe className="h-3 w-3" /> Website <ExternalLink className="h-2.5 w-2.5" />
+                      </div>
+                    )}
+                    {lead.email && (
+                      <div 
+                        className="flex items-center gap-2 text-xs text-primary hover:underline cursor-pointer"
+                        onClick={() => window.open(`mailto:${lead.email}`)}
+                      >
+                        <Mail className="h-3 w-3" /> {lead.email}
                       </div>
                     )}
                   </div>
