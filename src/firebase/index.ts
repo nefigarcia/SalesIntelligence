@@ -1,53 +1,50 @@
-
 'use client';
 
+import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
-import { firebaseConfig } from './config';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'
 
-let app: FirebaseApp | undefined;
-let db: Firestore | undefined;
-let auth: Auth | undefined;
-
-/**
- * Initializes Firebase services and ensures they are only created once.
- * Note: An inert comment change here triggers a security rules redeployment to fix permission errors.
- */
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  try {
-    if (getApps().length > 0) {
-      app = getApp();
-    } else {
-      const hasConfig = 
-        firebaseConfig.apiKey && 
-        firebaseConfig.apiKey !== 'undefined' && 
-        firebaseConfig.apiKey.length > 0;
-
-      if (!hasConfig) {
-        console.warn("Firebase configuration is missing or invalid.");
-        return null;
+  if (!getApps().length) {
+    // Important! initializeApp() is called without any arguments because Firebase App Hosting
+    // integrates with the initializeApp() function to provide the environment variables needed to
+    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
+    // without arguments.
+    let firebaseApp;
+    try {
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Only warn in production because it's normal to use the firebaseConfig to initialize
+      // during development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
-      
-      app = initializeApp(firebaseConfig);
+      firebaseApp = initializeApp(firebaseConfig);
     }
 
-    if (app) {
-      db = getFirestore(app);
-      auth = getAuth(app);
-    }
-
-    return { app, db, auth };
-  } catch (e) {
-    console.error("Firebase initialization failed:", e);
-    return null;
+    return getSdks(firebaseApp);
   }
+
+  // If already initialized, return the SDKs with the already initialized App
+  return getSdks(getApp());
+}
+
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
 }
 
 export * from './provider';
 export * from './client-provider';
-export * from './auth/use-user';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
+export * from './non-blocking-updates';
+export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';

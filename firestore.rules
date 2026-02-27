@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * CLIENTSFINDING SECURITY RULES - PROTOTYPING MODE
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset implements a strict user-ownership model for personal data while 
+     * providing shared access to a global directory of business leads. It prioritizes 
+     * authorization security and performance by utilizing denormalized ownership fields.
+     *
+     * DATA STRUCTURE:
+     * - /users/{userId}: Private user profiles.
+     * - /users/{userId}/leadLists/{leadListId}: User-specific collections of leads.
+     * - /leads/{leadId}: A global, searchable collection of business information.
+     *
+     * KEY SECURITY DECISIONS:
+     * 1. Ownership Enforcement: All data under `/users/{userId}` is strictly restricted
+     *    to the user whose Firebase Auth UID matches the `userId` in the path.
+     * 2. Denormalization for Authorization: Ownership IDs (like `userId`) are required
+     *    to be present within documents to ensure authorization decisions are atomic
+     *    and do not require expensive `get()` calls.
+     * 3. Restricted Global Writes: The `/leads` collection is globally readable by 
+     *    authenticated users but protected from client-side writes, assuming these 
+     *    are managed by administrative processes or backend services.
+     * 4. Structural Segregation: User-specific data is nested under the user's path,
+     *    naturally separating private lists from the public lead pool.
+     */
+
+    // --- HELPER FUNCTIONS ---
+
+    /**
+     * @description Checks if the request is made by an authenticated user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Verifies document existence and validates ownership for state-changing operations.
+     */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for UserProfile documents. Restricted to the profile owner.
+     * @path /users/{userId}
+     * @allow (get) If the user is requesting their own profile.
+     * @deny (list) If a user attempts to list all profiles in the system.
+     * @principle Enforces document ownership and validates ID consistency on creation.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Rules for LeadList documents. Private subcollection owned by the user.
+       * @path /users/{userId}/leadLists/{leadListId}
+       * @allow (create) If the user's UID matches the path and the 'userId' field in the data.
+       * @deny (update) If the user attempts to change the 'userId' ownership field.
+       * @principle Uses path-based authorization and enforces relational integrity via internal fields.
+       */
+      match /leadLists/{leadListId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Rules for the global Leads directory.
+     * @path /leads/{leadId}
+     * @allow (list) Any authenticated user can search for and list leads.
+     * @deny (create) Any write operation from the client SDK is forbidden.
+     * @principle Implements public-read/admin-write pattern for shared resources.
+     */
+    match /leads/{leadId} {
+      allow get, list: if isSignedIn();
+      
+      // CRITICAL: Cannot implement owner-only writes. The 'Lead' entity is missing an 'ownerId' or 'authorId' field.
+      // Per IR reasoning, these writes are intended for administrative or service-level access.
+      allow create, update, delete: if false; // TODO: Add owner validation if the schema is updated to allow user-submitted leads.
+    }
+  }
+}
