@@ -5,24 +5,36 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
+let app: FirebaseApp | undefined;
+let db: Firestore | undefined;
+let auth: Auth | undefined;
 
 export function initializeFirebase() {
   if (getApps().length > 0) {
     app = getApp();
   } else {
-    // Basic validation to prevent crashing on missing keys during build/init
-    const hasConfig = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined';
+    const hasConfig = 
+      firebaseConfig.apiKey && 
+      firebaseConfig.apiKey !== 'undefined' && 
+      firebaseConfig.apiKey.length > 0;
+
     if (!hasConfig) {
-      console.warn("Firebase configuration is missing or invalid. Check your environment variables.");
+      console.warn("Firebase configuration is missing or invalid. Dashboard features requiring a backend will be disabled.");
+      return null;
     }
-    app = initializeApp(firebaseConfig);
+    
+    try {
+      app = initializeApp(firebaseConfig);
+    } catch (e) {
+      console.error("Firebase initializeApp failed", e);
+      return null;
+    }
   }
 
-  db = getFirestore(app);
-  auth = getAuth(app);
+  if (app) {
+    db = getFirestore(app);
+    auth = getAuth(app);
+  }
 
   return { app, db, auth };
 }

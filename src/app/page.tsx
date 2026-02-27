@@ -40,7 +40,14 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   const handleSignIn = async () => {
-    if (!auth) return;
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Auth Disabled",
+        description: "Firebase Authentication is not configured.",
+      });
+      return;
+    }
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
