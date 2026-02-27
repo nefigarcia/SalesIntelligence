@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Business } from "@/app/page";
@@ -13,9 +14,7 @@ import {
   Mail,
   Calendar,
   Building2,
-  Clock,
   ShieldCheck,
-  Check,
   ChevronDown,
   Loader2
 } from "lucide-react";
@@ -25,11 +24,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { useUser, useFirestore, useCollection } from "@/firebase";
-import { doc, setDoc, serverTimestamp, collection, increment, runTransaction } from "firebase/firestore";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { doc, serverTimestamp, collection, increment, runTransaction } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
-import { useMemoFirebase } from "@/firebase/firestore/use-collection";
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -52,7 +50,7 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return collection(db, "users", user.uid, "lists");
+    return collection(db, "users", user.uid, "leadLists");
   }, [db, user]);
 
   const { data: userLists } = useCollection(listsQuery);
@@ -61,8 +59,8 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
     if (!db || !user) return;
     
     setIsSaving(true);
-    const listRef = doc(db, "users", user.uid, "lists", listId);
-    const leadRef = doc(db, "users", user.uid, "lists", listId, "leads", business.id);
+    const listRef = doc(db, "users", user.uid, "leadLists", listId);
+    const leadRef = doc(db, "users", user.uid, "leadLists", listId, "leads", business.id);
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -70,7 +68,9 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
         
         if (!listDoc.exists()) {
           transaction.set(listRef, {
+            id: listId,
             name: listName,
+            userId: user.uid,
             count: 1,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
@@ -83,7 +83,15 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
         }
         
         transaction.set(leadRef, {
-          ...business,
+          id: business.id,
+          name: business.name,
+          address: business.address,
+          phoneNumber: business.phone,
+          category: business.category,
+          rating: business.rating,
+          reviews: business.reviews,
+          website: business.website || "",
+          email: business.email || "",
           savedAt: serverTimestamp(),
         });
       });
@@ -121,8 +129,9 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
           <Image 
             src={`https://picsum.photos/seed/${business.id}/600/300`} 
             alt={business.name}
-            fill
-            className="object-cover"
+            width={600}
+            height={300}
+            className="object-cover w-full h-full"
             data-ai-hint="business exterior"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -171,7 +180,7 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5 text-xs font-bold text-muted-foreground uppercase">Save to List</div>
-                  {userLists?.length === 0 && (
+                  {userLists && userLists.length === 0 && (
                     <div className="px-2 py-2 text-xs text-muted-foreground italic">No custom lists yet</div>
                   )}
                   {userLists?.map(list => (

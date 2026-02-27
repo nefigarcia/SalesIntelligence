@@ -1,193 +1,56 @@
+
 {
   "entities": {
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user of the ClientsFinding application, allowing them to manage their lead lists.",
+      "description": "Represents a user of the ClientsFinding application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address, used for communication and identification.",
-          "format": "email"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "email",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "email", "createdAt", "updatedAt"]
     },
     "Lead": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Lead",
       "type": "object",
-      "description": "Represents a local business identified as a potential client lead, holding detailed information about the business.",
+      "description": "Represents a business lead.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Lead entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the business or lead."
-        },
-        "address": {
-          "type": "string",
-          "description": "The street address of the business."
-        },
-        "city": {
-          "type": "string",
-          "description": "The city where the business is located."
-        },
-        "state": {
-          "type": "string",
-          "description": "The state or province where the business is located."
-        },
-        "zipCode": {
-          "type": "string",
-          "description": "The postal code of the business location."
-        },
-        "country": {
-          "type": "string",
-          "description": "The country where the business is located."
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The primary phone number for the business."
-        },
-        "website": {
-          "type": "string",
-          "description": "The official website URL for the business.",
-          "format": "uri"
-        },
-        "category": {
-          "type": "string",
-          "description": "The primary business category or type (e.g., 'plumber', 'doctor'), used for search and classification."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "The geographical latitude coordinate of the business location, used for map display."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "The geographical longitude coordinate of the business location, used for map display."
-        },
-        "description": {
-          "type": "string",
-          "description": "An optional detailed description or additional notes about the business."
-        },
-        "source": {
-          "type": "string",
-          "description": "The source from which the lead information was obtained (e.g., 'Google Places API', 'Manual Entry')."
-        },
-        "leadListIds": {
-          "type": "array",
-          "description": "References to LeadLists that include this lead. (Relationship: Lead N:N LeadList)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when this lead was first added to the system.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when this lead's information was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "website": { "type": "string", "format": "uri" },
+        "email": { "type": "string", "format": "email" },
+        "category": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "savedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "address",
-        "city",
-        "state",
-        "zipCode",
-        "country",
-        "phoneNumber",
-        "website",
-        "category",
-        "latitude",
-        "longitude",
-        "source",
-        "leadListIds",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "address", "category"]
     },
     "LeadList": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "LeadList",
       "type": "object",
-      "description": "Represents a custom-named list created by a user to organize and manage identified business leads.",
+      "description": "Represents a custom list of leads.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the LeadList entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "A custom-defined name for the list of leads (e.g., 'Plumbers in NYC', 'Potential Clients')."
-        },
-        "description": {
-          "type": "string",
-          "description": "An optional detailed description for the lead list."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the UserProfile who owns this lead list. (Relationship: UserProfile 1:N LeadList)"
-        },
-        "leadIds": {
-          "type": "array",
-          "description": "References to Leads included in this list. (Relationship: Lead N:N LeadList)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the lead list was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the lead list was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "userId": { "type": "string" },
+        "count": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "userId",
-        "leadIds",
-        "createdAt",
-        "updatedAt"
-      ]
+      "required": ["id", "name", "userId", "createdAt", "updatedAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["google.com"]
   },
   "firestore": {
     "structure": [
@@ -195,55 +58,26 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores individual user profiles. Access is restricted to the authenticated user matching `userId`. Includes denormalized 'id' matching `userId` from the path for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user, corresponding to Firebase Authentication's UID."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "User profiles."
         }
       },
       {
         "path": "/users/{userId}/leadLists/{leadListId}",
         "definition": {
           "entityName": "LeadList",
-          "schema": {
-            "$ref": "#/backend/entities/LeadList"
-          },
-          "description": "Stores custom-named lists of leads created and owned by a specific user. Access is restricted to the authenticated user matching `userId`. Includes denormalized 'userId' in the document for authorization independence, matching `userId` from the path.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who owns this lead list."
-            },
-            {
-              "name": "leadListId",
-              "description": "The unique identifier for a specific lead list."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/LeadList" },
+          "description": "User lead lists."
         }
       },
       {
-        "path": "/leads/{leadId}",
+        "path": "/users/{userId}/leadLists/{leadListId}/leads/{leadId}",
         "definition": {
           "entityName": "Lead",
-          "schema": {
-            "$ref": "#/backend/entities/Lead"
-          },
-          "description": "Stores globally searchable local business leads. Read access is available to all authenticated users for discovery and map display. Create, update, and delete operations are restricted (e.g., to administrative roles or a background service).",
-          "params": [
-            {
-              "name": "leadId",
-              "description": "The unique identifier for a specific business lead."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Lead" },
+          "description": "Leads within a specific list."
         }
       }
-    ],
-    "reasoning": "The recommended Firestore structure for the ClientsFinding application prioritizes secure, scalable, and debuggable authorization rules by adhering strictly to the core design principles, especially Authorization Independence and Structural Segregation.\n\n1.  **UserProfile (`/users/{userId}`)**:\n    *   This top-level collection stores individual user profiles. Access is strictly private, meaning only the authenticated user (`request.auth.uid`) can read, write, or manage their own profile. The `id` field within the `UserProfile` document will be identical to the `userId` in the path and `request.auth.uid`. This design inherently achieves Authorization Independence as the authorization context is entirely contained within the path and the document itself, eliminating any need for `get()` operations on parent documents.\n\n2.  **LeadList (`/users/{userId}/leadLists/{leadListId}`)**:\n    *   Each user maintains their own subcollection of `LeadList` documents, representing custom-named lists of leads. This nested structure clearly establishes ownership: a `LeadList` belongs to a specific `UserProfile`. To achieve Authorization Independence, the `LeadList` document explicitly includes a `userId` field. This `userId` field will match the `userId` wildcard in the path and `request.auth.uid`, allowing security rules to directly evaluate ownership (`request.auth.uid == resource.data.userId`) without performing a `get()` operation on the parent `users/{userId}` document. This ensures that creating or modifying a LeadList is an atomic operation with respect to authorization.\n\n3.  **Lead (`/leads/{leadId}`)**:\n    *   This top-level collection stores all identified local business leads. Given the 'Local Business Search' and 'Interactive Map Display' features, Leads are treated as a shared, searchable resource. Read access to documents in this collection is granted to all authenticated users, facilitating discovery and display. Create, update, and delete operations for the core Lead data are intended to be highly restricted (e.g., to an administrative process or service account) as users do not typically 'create' new businesses in this system, but rather 'save' existing ones to their lists. This segregation (publicly readable data vs. user-owned lists) maintains a homogeneous security posture within the collection.\n\n**Authorization Independence and QAPs Explanation**:\n\n*   **Authorization Independence** is achieved by denormalizing ownership information directly into the documents where it's needed for access control. For `UserProfile` and `LeadList`, the `userId` in the path directly corresponds to `request.auth.uid`, and for `LeadList`, `resource.data.userId` confirms this ownership without needing to fetch a parent document. The `Lead` collection's authorization is self-contained (authenticated-read). This eliminates `get()` calls in security rules, making them faster, more robust, and easier to debug, especially for batched writes or transactions.\n\n*   **Queryable Access Patterns (QAPs)** are fully supported:\n    *   For `UserProfile` and `LeadList`, users can efficiently `list` their own profiles or lead lists by querying `/users/{request.auth.uid}` or `/users/{request.auth.uid}/leadLists` respectively. The security rules will permit these `list` operations because the `userId` in the path matches `request.auth.uid`, ensuring that rules are not acting as filters (i.e., Firestore doesn't need to scan all documents and then filter by `userId`).\n    *   For `Lead`s, all authenticated users can `list` and query the `/leads` collection based on various criteria (e.g., `category`, `city`, `latitude`, `longitude`) as needed for the 'Local Business Search' and 'Interactive Map Display' features. Since read access is homogeneous for authenticated users, `list` operations are efficient and not filtered by user-specific ownership, adhering to the QAPs principle. The N:N relationship between `Lead` and `LeadList` is managed by storing `leadIds` in `LeadList` and `leadListIds` in `Lead` (for data integrity/referential purposes), but the authorization for reading a `Lead` document does not depend on its presence in a specific user's `LeadList`."
+    ]
   }
 }

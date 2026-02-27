@@ -1,10 +1,10 @@
+
 "use client";
 
 import { useState } from "react";
 import { 
   Search, 
   ListOrdered, 
-  PieChart, 
   Download,
   PlusCircle,
   FolderOpen,
@@ -30,9 +30,8 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { useUser, useAuth, useFirestore, useCollection } from "@/firebase";
+import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { useMemoFirebase } from "@/firebase/firestore/use-collection";
 import { signOut } from "firebase/auth";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -73,7 +72,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    return query(collection(db, "users", user.uid, "lists"), orderBy("createdAt", "desc"));
+    return query(collection(db, "users", user.uid, "leadLists"), orderBy("createdAt", "desc"));
   }, [db, user]);
 
   const { data: savedLists, loading } = useCollection(listsQuery);
@@ -88,14 +87,16 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
 
     setIsCreating(true);
     const listId = `list-${Date.now()}`;
-    const listRef = doc(db, "users", user.uid, "lists", listId);
+    const listRef = doc(db, "users", user.uid, "leadLists", listId);
     const listData = {
+      id: listId,
       name: newListName.trim(),
+      userId: user.uid,
       count: 0,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
     
-    // Non-blocking mutation call
     setDoc(listRef, listData)
       .then(() => {
         toast({ title: "List Created", description: `"${newListName}" is ready for leads.` });
@@ -118,7 +119,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const handleDeleteList = (listId: string) => {
     if (!db || !user) return;
     
-    const listRef = doc(db, "users", user.uid, "lists", listId);
+    const listRef = doc(db, "users", user.uid, "leadLists", listId);
     deleteDoc(listRef).catch(async (serverError) => {
       const permissionError = new FirestorePermissionError({
         path: listRef.path,
@@ -182,6 +183,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                 <SidebarMenuItem key={list.id}>
                   <SidebarMenuButton 
                     tooltip={list.name} 
+                    isActive={activeView === "lists" && activeView === list.id}
                     className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                     onClick={() => onViewChange("lists", list.id)}
                   >
@@ -224,7 +226,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
                         Create New Lead List
                       </DialogTitle>
                       <DialogDescription>
-                        Give your list a name to organize your gathered leads by industry or location.
+                        Give your list a name to organize your gathered leads.
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleCreateList}>

@@ -1,8 +1,8 @@
+
 "use client";
 
-import { useUser, useFirestore, useCollection } from "@/firebase";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, doc, deleteDoc, updateDoc, increment } from "firebase/firestore";
-import { useMemoFirebase } from "@/firebase/firestore/use-collection";
 import { 
   Table, 
   TableBody, 
@@ -30,9 +30,8 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
 
   const leadsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
-    const path = listId 
-      ? `users/${user.uid}/lists/${listId}/leads`
-      : `users/${user.uid}/lists/general/leads`;
+    const activeListId = listId || "general";
+    const path = `users/${user.uid}/leadLists/${activeListId}/leads`;
     return query(collection(db, path), orderBy("savedAt", "desc"));
   }, [db, user, listId]);
 
@@ -41,12 +40,15 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
   const handleDeleteLead = async (leadId: string) => {
     if (!db || !user) return;
     const activeListId = listId || "general";
-    const leadRef = doc(db, "users", user.uid, "lists", activeListId, "leads", leadId);
-    const listRef = doc(db, "users", user.uid, "lists", activeListId);
+    const leadRef = doc(db, "users", user.uid, "leadLists", activeListId, "leads", leadId);
+    const listRef = doc(db, "users", user.uid, "leadLists", activeListId);
 
     deleteDoc(leadRef)
       .then(() => {
-        updateDoc(listRef, { count: increment(-1) }).catch(() => {});
+        updateDoc(listRef, { 
+          count: increment(-1),
+          updatedAt: new Date().toISOString()
+        }).catch(() => {});
         toast({ title: "Lead Removed", description: "Business removed from list." });
       })
       .catch(async () => {
@@ -99,7 +101,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
 
       <div className="flex-1 overflow-auto">
         <Table>
-          <TableHeader className="bg-slate-50/80 sticky top-0 z-10">
+          <TableHeader className="bg-slate-50/80 sticky top-0_z-10">
             <TableRow>
               <TableHead className="w-[300px]">Business Name</TableHead>
               <TableHead>Category</TableHead>
@@ -125,7 +127,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                 <TableCell>
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="h-3 w-3" /> {lead.phone}
+                      <Phone className="h-3 w-3" /> {lead.phoneNumber || "No phone"}
                     </div>
                     {lead.website && (
                       <div 
