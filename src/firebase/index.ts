@@ -1,3 +1,4 @@
+
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
@@ -11,7 +12,7 @@ let auth: Auth | undefined;
 
 /**
  * Initializes Firebase services and ensures they are only created once.
- * Note: An inert comment change here triggers a security rules redeployment.
+ * Note: An inert comment change here triggers a security rules redeployment to fix permission errors.
  */
 export function initializeFirebase() {
   try {
