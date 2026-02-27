@@ -1,8 +1,7 @@
-
 "use client";
 
 import { Business } from "@/app/page";
-import { Star, MapPin, Phone, ArrowRight, MousePointer2 } from "lucide-react";
+import { Star, MapPin, Phone, ArrowRight, MousePointer2, Globe, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,7 +37,7 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
 
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-12 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center h-full p-12 text-center bg-slate-50/30">
         <div className="h-16 w-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
           <MousePointer2 className="h-8 w-8 text-slate-400" />
         </div>
@@ -76,21 +75,35 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                   {b.name}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                   <span className="text-xs font-bold">{b.rating}</span>
                 </div>
               </div>
+              
               <div className="space-y-1.5 mb-4">
                 <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                  <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
                   <span className="line-clamp-1">{b.address}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Phone className="h-3 w-3 shrink-0" />
+                  <Phone className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                   <span>{b.phone}</span>
                 </div>
+                {b.email && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate">{b.email}</span>
+                  </div>
+                )}
+                {b.website && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="truncate">{b.website.replace(/^https?:\/\//, '')}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                 <Badge variant="outline" className="font-normal text-[10px] text-muted-foreground border-slate-200">
                   {b.category}
                 </Badge>

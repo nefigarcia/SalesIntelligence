@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -21,11 +20,12 @@ export type Business = {
   category: string;
   address: string;
   phone: string;
+  email?: string;
+  website?: string;
   rating: number;
   reviews: number;
   lat: number;
   lng: number;
-  website?: string;
 };
 
 export type ViewState = "search" | "lists" | "analytics";
@@ -71,9 +71,8 @@ export default function Dashboard() {
   const handleSearch = (query: string, location: string) => {
     setActiveView("search");
     setIsSearching(true);
-    setSelectedBusiness(null); // Clear selection on new search to avoid confusion
+    setSelectedBusiness(null); 
     
-    // Simulate API call for local business search with dynamic data
     setTimeout(() => {
       const seed = Date.now();
       const mockResults: Business[] = [
@@ -83,11 +82,12 @@ export default function Dashboard() {
           category: query || "Professional Service",
           address: `123 North St, ${location}`,
           phone: "(555) 123-4567",
+          email: `info@${query.toLowerCase().replace(/\s/g, '') || 'service'}.com`,
+          website: `https://www.${query.toLowerCase().replace(/\s/g, '') || 'service'}-pro.com`,
           rating: 4.8,
           reviews: 124,
           lat: 40.7128 + (Math.random() - 0.5) * 0.05,
           lng: -74.006 + (Math.random() - 0.5) * 0.05,
-          website: "https://example.com"
         },
         {
           id: `b-${seed}-2`,
@@ -95,11 +95,12 @@ export default function Dashboard() {
           category: query || "Local Business",
           address: `456 Central Ave, ${location}`,
           phone: "(555) 987-6543",
+          email: `contact@elite-${query.toLowerCase().replace(/\s/g, '') || 'business'}.net`,
+          website: `https://elite-${query.toLowerCase().replace(/\s/g, '') || 'business'}.net`,
           rating: 4.5,
           reviews: 89,
           lat: 40.7306 + (Math.random() - 0.5) * 0.05,
           lng: -73.9352 + (Math.random() - 0.5) * 0.05,
-          website: "https://example.com"
         },
         {
           id: `b-${seed}-3`,
@@ -107,11 +108,12 @@ export default function Dashboard() {
           category: query || "Specialist",
           address: `789 South Blvd, ${location}`,
           phone: "(555) 456-7890",
+          email: `hello@${location.toLowerCase().split(',')[0]}-hub.org`,
+          website: `https://www.${location.toLowerCase().split(',')[0]}-hub.org`,
           rating: 4.2,
           reviews: 56,
           lat: 40.7589 + (Math.random() - 0.5) * 0.05,
           lng: -73.9851 + (Math.random() - 0.5) * 0.05,
-          website: "https://example.com"
         },
       ];
       setSearchResults(mockResults);

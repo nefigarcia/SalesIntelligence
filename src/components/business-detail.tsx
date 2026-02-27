@@ -50,7 +50,6 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
   const db = useFirestore();
   const [isSaving, setIsSaving] = useState(false);
 
-  // Get user's lists
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return collection(db, "users", user.uid, "lists");
@@ -156,7 +155,7 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
           <div className="flex flex-col gap-3 mb-6">
             <div className="flex gap-2">
               <Button 
-                className="flex-1 rounded-xl py-6 bg-primary hover:bg-primary/90" 
+                className="flex-1 rounded-xl py-6 bg-primary hover:bg-primary/90 shadow-md transition-all active:scale-95" 
                 onClick={() => handleSaveLead("general", "General Leads")}
                 disabled={isSaving}
               >
@@ -181,15 +180,15 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
                     </DropdownMenuItem>
                   ))}
                   <Separator className="my-1" />
-                  <DropdownMenuItem onClick={() => toast({ title: "Coming Soon", description: "Create a list in the sidebar first." })}>
+                  <DropdownMenuItem onClick={() => toast({ title: "Tip", description: "Use the sidebar to create new lists." })}>
                     <PlusCircle className="h-4 w-4 mr-2" /> New List...
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
             
-            <Button variant="outline" className="w-full border-slate-200 rounded-xl py-6" onClick={() => window.open(`tel:${business.phone}`)}>
-              <Mail className="h-4 w-4 mr-2" /> Contact Business
+            <Button variant="outline" className="w-full border-slate-200 rounded-xl py-6" onClick={() => window.open(`mailto:${business.email || ''}`)}>
+              <Mail className="h-4 w-4 mr-2" /> Contact via Email
             </Button>
           </div>
 
@@ -203,16 +202,24 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
               <div className="space-y-4">
                 <div className="flex items-start gap-3">
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><MapPin className="h-4 w-4 text-slate-600" /></div>
-                  <div className="text-sm leading-relaxed">{business.address}</div>
+                  <div className="text-sm">{business.address}</div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Phone className="h-4 w-4 text-slate-600" /></div>
-                  <div className="text-sm">{business.phone}</div>
+                  <div className="text-sm font-medium">{business.phone}</div>
                 </div>
+                {business.email && (
+                  <div className="flex items-center gap-3">
+                    <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Mail className="h-4 w-4 text-slate-600" /></div>
+                    <div className="text-sm text-primary hover:underline cursor-pointer font-medium" onClick={() => window.open(`mailto:${business.email}`)}>
+                      {business.email}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Globe className="h-4 w-4 text-slate-600" /></div>
                   <div className="text-sm text-primary hover:underline cursor-pointer font-medium" onClick={() => business.website && window.open(business.website)}>
-                    {business.website?.replace('https://', '') || 'No website available'}
+                    {business.website?.replace(/^https?:\/\//, '') || 'No website available'}
                   </div>
                 </div>
               </div>
