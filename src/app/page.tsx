@@ -76,8 +76,29 @@ export default function Dashboard() {
     // Simulate finding multiple businesses across the area
     setTimeout(() => {
       const seed = Date.now();
-      const baseLat = 40.7128; // Default to NYC center for mock
-      const baseLng = -74.0060;
+      
+      // Basic Geocoding simulation
+      let baseLat = 40.7128; // Default NYC
+      let baseLng = -74.0060;
+
+      const locLower = location.toLowerCase();
+      if (locLower.includes("utah") || locLower.includes("salt lake") || locLower.includes("slc")) {
+        baseLat = 40.7608;
+        baseLng = -111.8910;
+      } else if (locLower.includes("california") || locLower.includes("los angeles") || locLower.includes("la")) {
+        baseLat = 34.0522;
+        baseLng = -118.2437;
+      } else if (locLower.includes("texas") || locLower.includes("austin")) {
+        baseLat = 30.2672;
+        baseLng = -97.7431;
+      } else if (locLower.includes("florida") || locLower.includes("miami")) {
+        baseLat = 25.7617;
+        baseLng = -80.1918;
+      } else if (location.length > 0 && !locLower.includes("new york")) {
+        // Randomize slightly for unknown locations so it doesn't always show NYC
+        baseLat = 35 + Math.random() * 10;
+        baseLng = -100 + Math.random() * 20;
+      }
       
       const mockResults: Business[] = Array.from({ length: 8 }).map((_, i) => ({
         id: `b-${seed}-${i}`,
@@ -89,8 +110,8 @@ export default function Dashboard() {
         website: `https://www.${query.toLowerCase().replace(/\s/g, '')}${i}.com`,
         rating: 4.0 + Math.random(),
         reviews: 20 + Math.floor(Math.random() * 200),
-        lat: baseLat + (Math.random() - 0.5) * 0.1, // Scatter markers
-        lng: baseLng + (Math.random() - 0.5) * 0.1,
+        lat: baseLat + (Math.random() - 0.5) * 0.05, // Closer scatter
+        lng: baseLng + (Math.random() - 0.5) * 0.05,
       }));
 
       setSearchResults(mockResults);
