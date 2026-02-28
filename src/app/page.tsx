@@ -12,9 +12,10 @@ import { SavedLeadsView } from "@/components/saved-leads-view";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { LogIn, Search as SearchIcon, RefreshCcw } from "lucide-react";
+import { LogIn, Search as SearchIcon, RefreshCcw, Compass } from "lucide-react";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { APIProvider, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 
 export type Business = {
   id: string;
@@ -32,13 +33,15 @@ export type Business = {
 
 export type ViewState = "search" | "lists" | "analytics";
 
-export default function Dashboard() {
-  const { user, loading: userLoading } = useUser();
-  const auth = useAuth();
+function DashboardContent() {
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  
+  const map = useMap();
+  const placesLibrary = useMapsLibrary("places");
 
   const [activeView, setActiveView] = useState<ViewState>("search");
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -47,7 +50,6 @@ export default function Dashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchThisArea, setShowSearchThisArea] = useState(false);
   
-  // Map State from URL or Defaults
   const [mapCenter, setMapCenter] = useState({ 
     lat: parseFloat(searchParams.get("lat") || "40.7128"), 
     lng: parseFloat(searchParams.get("lng") || "-74.0060") 
@@ -55,18 +57,26 @@ export default function Dashboard() {
   const [zoom, setZoom] = useState(parseInt(searchParams.get("z") || "12"));
   const initialSearchPerformed = useRef(false);
 
-  // Sync URL with Map State (Throttled)
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("lat", mapCenter.lat.toFixed(6));
     params.set("lng", mapCenter.lng.toFixed(6));
     params.set("z", zoom.toString());
-    
-    // Use replace to avoid bloating history during pans
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   }, [mapCenter, zoom, pathname, searchParams]);
 
   const handleSearch = useCallback((fullQuery: string, useCurrentView = false) => {
+    if (!placesLibrary || !map) {
+      if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+        toast({
+          variant: "destructive",
+          title: "API Key Required",
+          description: "Please configure your Google Maps API Key to use real search.",
+        });
+      }
+      return;
+    }
+
     setActiveView("search");
     setIsSearching(true);
     setSelectedBusiness(null);
@@ -75,111 +85,60 @@ export default function Dashboard() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("q", fullQuery);
     router.replace(`${pathname}?${params.toString()}`);
+
+    const service = new placesLibrary.PlacesService(map);
     
-    // Simulate finding businesses
-    setTimeout(() => {
-      const seed = Date.now();
-      let searchTerm = fullQuery;
-      let targetLat = mapCenter.lat;
-      let targetLng = mapCenter.lng;
-      let shouldMoveMap = false;
+    const request: google.maps.places.TextSearchRequest = {
+      query: fullQuery,
+      location: useCurrentView ? map.getCenter() : undefined,
+      bounds: useCurrentView ? map.getBounds() : undefined,
+    };
 
-      // Logic for "in/near" location parsing
-      if (!useCurrentView) {
-        const inMatch = fullQuery.toLowerCase().split(/\s+in\s+/);
-        const nearMatch = fullQuery.toLowerCase().split(/\s+near\s+/);
+    service.textSearch(request, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const businesses: Business[] = results.map((place) => ({
+          id: place.place_id || Math.random().toString(),
+          name: place.name || "Unknown Business",
+          category: place.types?.[0]?.replace(/_/g, " ") || "Business",
+          address: place.formatted_address || "No address available",
+          phone: "Contact for phone", // Phone requires a secondary "getDetails" call per result
+          rating: place.rating || 0,
+          reviews: place.user_ratings_total || 0,
+          lat: place.geometry?.location?.lat() || 0,
+          lng: place.geometry?.location?.lng() || 0,
+          website: place.website,
+        }));
+
+        setSearchResults(businesses);
         
-        if (inMatch.length > 1 || nearMatch.length > 1) {
-          const locationName = (inMatch[1] || nearMatch[1]).trim();
-          searchTerm = (inMatch[0] || nearMatch[0]).trim();
-          shouldMoveMap = true;
-
-          const locLower = locationName.toLowerCase();
-          if (locLower.includes("utah") || locLower.includes("salt lake")) {
-            targetLat = 40.7608; targetLng = -111.8910;
-          } else if (locLower.includes("california") || locLower.includes("la")) {
-            targetLat = 34.0522; targetLng = -118.2437;
-          } else if (locLower.includes("texas") || locLower.includes("austin")) {
-            targetLat = 30.2672; targetLng = -97.7431;
-          } else if (locLower.includes("nevada") || locLower.includes("las vegas")) {
-            targetLat = 36.1716; targetLng = -115.1391;
-          }
-          
-          setMapCenter({ lat: targetLat, lng: targetLng });
+        if (!useCurrentView && businesses.length > 0) {
+          const firstResult = businesses[0];
+          setMapCenter({ lat: firstResult.lat, lng: firstResult.lng });
           setZoom(13);
         }
-      }
 
-      const mockResults: Business[] = Array.from({ length: 12 }).map((_, i) => ({
-        id: `b-${seed}-${i}`,
-        name: `${['Elite', 'Premium', 'Star', 'Global', 'Local', 'Pro', 'Apex', 'Direct'][i % 8]} ${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} ${i + 1}`,
-        category: searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1) || "Business",
-        address: `${100 + i * 25} Main St, Region`,
-        phone: `(555) ${100 + i}-${2000 + i}`,
-        email: `contact@${searchTerm.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
-        website: `https://www.${searchTerm.toLowerCase().replace(/\s/g, '')}${i}.com`,
-        rating: 4.0 + Math.random(),
-        reviews: 20 + Math.floor(Math.random() * 200),
-        lat: targetLat + (Math.random() - 0.5) * 0.05,
-        lng: targetLng + (Math.random() - 0.5) * 0.05,
-      }));
-
-      setSearchResults(mockResults);
-      setIsSearching(false);
-      
-      if (!useCurrentView) {
         toast({
           title: "Search Complete",
-          description: `Found ${mockResults.length} results for "${searchTerm}".`,
+          description: `Found ${businesses.length} real businesses.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Search Failed",
+          description: "Could not retrieve real business data at this time.",
         });
       }
-    }, 800);
-  }, [mapCenter, searchParams, router, pathname, toast]);
+      setIsSearching(false);
+    });
+  }, [placesLibrary, map, searchParams, router, pathname, toast]);
 
-  // Handle Initial Search from URL
   useEffect(() => {
     const queryParam = searchParams.get("q");
-    if (queryParam && !initialSearchPerformed.current && user) {
+    if (queryParam && !initialSearchPerformed.current && user && placesLibrary && map) {
       initialSearchPerformed.current = true;
       handleSearch(queryParam);
     }
-  }, [searchParams, user, handleSearch]);
-
-  const handleSignIn = async () => {
-    if (!auth) return;
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.error("Auth Error:", error);
-    }
-  };
-
-  if (userLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col h-screen items-center justify-center bg-background p-6 text-center">
-        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8">
-          <SearchIcon className="h-10 w-10 text-primary" />
-        </div>
-        <h1 className="text-3xl font-bold mb-4 tracking-tight text-foreground">Welcome to ClientsFinding</h1>
-        <p className="text-muted-foreground max-w-md mb-8">
-          The smart B2B lead generation tool. Sign in to start finding and managing local business leads.
-        </p>
-        <Button onClick={handleSignIn} size="lg" className="rounded-full px-8 py-6 text-lg font-semibold gap-2">
-          <LogIn className="h-5 w-5" /> Sign in with Google
-        </Button>
-      </div>
-    );
-  }
+  }, [searchParams, user, handleSearch, placesLibrary, map]);
 
   return (
     <SidebarProvider>
@@ -260,5 +219,91 @@ export default function Dashboard() {
         </SidebarInset>
       </div>
     </SidebarProvider>
+  );
+}
+
+export default function Dashboard() {
+  const { user, loading: userLoading } = useUser();
+  const auth = useAuth();
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+  const handleSignIn = async () => {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Auth Error:", error);
+    }
+  };
+
+  if (userLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background p-6 text-center">
+        <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-8">
+          <SearchIcon className="h-10 w-10 text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold mb-4 tracking-tight text-foreground">Welcome to ClientsFinding</h1>
+        <p className="text-muted-foreground max-w-md mb-8">
+          The smart B2B lead generation tool. Sign in to start finding and managing real local business leads.
+        </p>
+        <Button onClick={handleSignIn} size="lg" className="rounded-full px-8 py-6 text-lg font-semibold gap-2">
+          <LogIn className="h-5 w-5" /> Sign in with Google
+        </Button>
+      </div>
+    );
+  }
+
+  if (!apiKey) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-background p-8 text-center">
+        <div className="bg-white p-12 rounded-[2.5rem] shadow-2xl max-w-xl border border-slate-100 animate-in fade-in zoom-in duration-700">
+          <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-8">
+            <Compass className="h-10 w-10 text-primary" />
+          </div>
+          <h3 className="text-3xl font-black mb-6 text-slate-900 tracking-tight">Google Maps Integration Required</h3>
+          <p className="text-slate-600 mb-8 leading-relaxed text-lg font-medium">
+            To search for real businesses and view them on the map, you need to provide a Google Maps API Key.
+          </p>
+          
+          <div className="bg-slate-50 p-8 rounded-3xl text-left space-y-5 mb-8 border border-slate-100">
+            <div className="flex gap-4">
+              <div className="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center text-[12px] font-black shrink-0 mt-0.5">1</div>
+              <p className="text-base text-slate-700 font-semibold">Enable <b>Maps JavaScript API</b> and <b>Places API</b> in Google Cloud.</p>
+            </div>
+            <div className="flex gap-4">
+              <div className="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center text-[12px] font-black shrink-0 mt-0.5">2</div>
+              <p className="text-base text-slate-700 font-semibold">Add your key to <code>.env</code> as:<br/>
+                <code className="text-[12px] bg-white px-3 py-2 rounded-xl border border-slate-200 mt-3 block font-mono text-primary shadow-sm">
+                  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+                </code>
+              </p>
+            </div>
+          </div>
+          
+          <Button 
+            className="w-full rounded-2xl py-8 text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform active:scale-95"
+            onClick={() => window.open('https://console.cloud.google.com/google/maps-apis/credentials', '_blank')}
+          >
+            Open Google Cloud Console
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <APIProvider apiKey={apiKey}>
+      <DashboardContent />
+    </APIProvider>
   );
 }
