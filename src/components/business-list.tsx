@@ -237,18 +237,20 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                   {/* Phone Section */}
                   <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
                     <Phone className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    <span>{b.phone}</span>
+                    <span className={cn(b.phone === "Loading phone..." && "animate-pulse opacity-50")}>
+                      {b.phone}
+                    </span>
                   </div>
 
-                  {/* Website Section - Displayed if it exists */}
-                  {b.website && (
+                  {/* Website Section */}
+                  {b.website ? (
                     <div className="flex items-center gap-2 text-xs text-primary font-bold">
                       <Globe className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{b.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
                     </div>
-                  )}
+                  ) : null}
 
-                  {/* Email Section - Displayed if it exists */}
+                  {/* Email Section */}
                   {b.email && (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -273,10 +275,10 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
 
       {/* Bulk Action Bar */}
       {isAnySelected && (
-        <div className="absolute bottom-8 left-4 right-4 animate-in slide-in-from-bottom-8 duration-500 cubic-bezier(0.16, 1, 0.3, 1)">
+        <div className="absolute bottom-8 left-4 right-4 animate-in slide-in-from-bottom-8 duration-500">
           <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl flex items-center justify-between border border-white/10 backdrop-blur-md">
             <div className="flex items-center gap-4">
-              <div className="bg-primary h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-lg shadow-primary/30">
+              <div className="bg-primary h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm">
                 {selectedIds.length}
               </div>
               <div className="flex flex-col">
@@ -288,27 +290,21 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
             <div className="flex items-center gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 rounded-xl shadow-lg shadow-primary/20 border-none transition-all active:scale-95" disabled={isBulkSaving}>
+                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 rounded-xl" disabled={isBulkSaving}>
                     {isBulkSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CheckCircle2 className="h-5 w-5 mr-2" />}
                     Save to List
                     <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 bg-white border-slate-200 rounded-2xl p-2 shadow-2xl">
-                  <div className="px-3 py-2 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Destination List</div>
-                  <DropdownMenuItem onClick={() => handleBulkSave("general", "General Leads")} className="rounded-xl px-3 py-2.5 text-slate-700 font-semibold focus:bg-slate-50">
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem onClick={() => handleBulkSave("general", "General Leads")}>
                     General Leads
                   </DropdownMenuItem>
-                  {userLists && userLists.length > 0 && <Separator className="my-1.5 opacity-50" />}
                   {userLists?.map(list => (
-                    <DropdownMenuItem key={list.id} onClick={() => handleBulkSave(list.id, list.name)} className="rounded-xl px-3 py-2.5 text-slate-700 font-semibold focus:bg-slate-50">
+                    <DropdownMenuItem key={list.id} onClick={() => handleBulkSave(list.id, list.name)}>
                       {list.name}
                     </DropdownMenuItem>
                   ))}
-                  <Separator className="my-1.5 opacity-50" />
-                  <DropdownMenuItem onClick={() => toast({ title: "Navigation Tip", description: "Use the sidebar to create new custom lists." })} className="text-slate-400 italic text-xs px-3 py-2 rounded-xl focus:bg-slate-50">
-                    <PlusCircle className="h-4 w-4 mr-2" /> Create custom list in sidebar
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               
@@ -316,7 +312,7 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setSelectedIds([])} 
-                className="text-slate-400 hover:text-white hover:bg-white/10 h-11 w-11 rounded-xl transition-colors"
+                className="text-slate-400 hover:text-white h-11 w-11 rounded-xl"
               >
                 <X className="h-5 w-5" />
               </Button>

@@ -101,12 +101,12 @@ function DashboardContent() {
           name: place.name || "Unknown Business",
           category: place.types?.[0]?.replace(/_/g, " ") || "Business",
           address: place.formatted_address || "No address available",
-          phone: place.formatted_phone_number || "Contact for phone", 
+          phone: "Loading phone...", 
           rating: place.rating || 0,
           reviews: place.user_ratings_total || 0,
           lat: place.geometry?.location?.lat() || 0,
           lng: place.geometry?.location?.lng() || 0,
-          website: place.website,
+          website: "",
         }));
 
         setSearchResults(businesses);
@@ -117,9 +117,34 @@ function DashboardContent() {
           setZoom(13);
         }
 
+        // Deep enrich the results with Details (Phone/Website)
+        results.forEach((place, index) => {
+          if (!place.place_id) return;
+          
+          // Stagger requests slightly to be nice to rate limits
+          setTimeout(() => {
+            service.getDetails({
+              placeId: place.place_id!,
+              fields: ['formatted_phone_number', 'website']
+            }, (detail, detailStatus) => {
+              if (detailStatus === google.maps.places.PlacesServiceStatus.OK && detail) {
+                setSearchResults(prev => prev.map(b => 
+                  b.id === place.place_id 
+                    ? { 
+                        ...b, 
+                        phone: detail.formatted_phone_number || "No phone listed", 
+                        website: detail.website || "" 
+                      } 
+                    : b
+                ));
+              }
+            });
+          }, index * 150);
+        });
+
         toast({
           title: "Search Complete",
-          description: `Found ${businesses.length} real businesses.`,
+          description: `Found ${businesses.length} businesses. Fetching details...`,
         });
       } else {
         toast({
