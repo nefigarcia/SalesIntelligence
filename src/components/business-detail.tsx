@@ -28,7 +28,7 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebas
 import { doc, serverTimestamp, collection, increment, runTransaction } from "firebase/firestore";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,17 +36,46 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 
 interface BusinessDetailProps {
   business: Business;
   onClose: () => void;
 }
 
-export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
+export function BusinessDetail({ business: initialBusiness, onClose }: BusinessDetailProps) {
   const { toast } = useToast();
   const { user } = useUser();
   const db = useFirestore();
+  const map = useMap();
+  const placesLibrary = useMapsLibrary("places");
+  
+  const [business, setBusiness] = useState<Business>(initialBusiness);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Deep fetch details (Phone/Website) when business is selected
+  useEffect(() => {
+    if (!placesLibrary || !map || !initialBusiness.id) return;
+
+    setIsLoadingDetails(true);
+    const service = new placesLibrary.PlacesService(map);
+    
+    service.getDetails({
+      placeId: initialBusiness.id,
+      fields: ['formatted_phone_number', 'website', 'formatted_address', 'name', 'rating', 'user_ratings_total']
+    }, (result, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && result) {
+        setBusiness(prev => ({
+          ...prev,
+          phone: result.formatted_phone_number || prev.phone,
+          website: result.website || prev.website,
+          address: result.formatted_address || prev.address,
+        }));
+      }
+      setIsLoadingDetails(false);
+    });
+  }, [initialBusiness.id, placesLibrary, map]);
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -213,10 +242,33 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><MapPin className="h-4 w-4 text-slate-600" /></div>
                   <div className="text-sm">{business.address}</div>
                 </div>
+                
                 <div className="flex items-center gap-3">
                   <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Phone className="h-4 w-4 text-slate-600" /></div>
-                  <div className="text-sm font-medium">{business.phone}</div>
+                  <div className="text-sm font-medium flex items-center gap-2">
+                    {isLoadingDetails ? (
+                      <span className="text-muted-foreground animate-pulse">Loading phone...</span>
+                    ) : (
+                      business.phone || "No phone listed"
+                    )}
+                  </div>
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Globe className="h-4 w-4 text-slate-600" /></div>
+                  <div className="text-sm text-primary hover:underline cursor-pointer font-medium flex items-center gap-2">
+                    {isLoadingDetails ? (
+                      <span className="text-muted-foreground animate-pulse">Loading website...</span>
+                    ) : (
+                      business.website ? (
+                        <span onClick={() => window.open(business.website, '_blank')}>
+                          {business.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </span>
+                      ) : "No website available"
+                    )}
+                  </div>
+                </div>
+
                 {business.email && (
                   <div className="flex items-center gap-3">
                     <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Mail className="h-4 w-4 text-slate-600" /></div>
@@ -225,12 +277,6 @@ export function BusinessDetail({ business, onClose }: BusinessDetailProps) {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3">
-                  <div className="bg-slate-100 p-2 rounded-lg shrink-0"><Globe className="h-4 w-4 text-slate-600" /></div>
-                  <div className="text-sm text-primary hover:underline cursor-pointer font-medium" onClick={() => business.website && window.open(business.website)}>
-                    {business.website?.replace(/^https?:\/\//, '') || 'No website available'}
-                  </div>
-                </div>
               </div>
             </section>
           </div>
