@@ -3,10 +3,16 @@
 
 import { useState, useEffect } from "react";
 import { Business } from "@/app/page";
-import { MapPin, ZoomIn, ZoomOut, Navigation, Compass } from "lucide-react";
+import { 
+  APIProvider, 
+  Map, 
+  AdvancedMarker, 
+  Pin,
+  useMap
+} from "@vis.gl/react-google-maps";
+import { Navigation, Compass, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 
 interface MapViewProps {
   results: Business[];
@@ -15,110 +21,106 @@ interface MapViewProps {
 }
 
 export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewProps) {
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.006 });
+  const [zoom, setZoom] = useState(12);
 
+  // Update map center when search results change
   useEffect(() => {
-    const timer = setTimeout(() => setIsMapLoaded(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    if (results.length > 0) {
+      setMapCenter({ lat: results[0].lat, lng: results[0].lng });
+      setZoom(13);
+    }
+  }, [results]);
 
-  // Helper to generate semi-random but consistent positions for mock markers
-  const getMarkerPosition = (idx: number) => {
-    // These values are derived from index to keep them consistent for the same result set
-    const positions = [
-      { left: '35%', top: '45%' },
-      { left: '55%', top: '30%' },
-      { left: '65%', top: '60%' },
-      { left: '42%', top: '75%' },
-      { left: '25%', top: '55%' },
-    ];
-    return positions[idx % positions.length];
-  };
+  // Update map center when a business is selected
+  useEffect(() => {
+    if (selectedBusiness) {
+      setMapCenter({ lat: selectedBusiness.lat, lng: selectedBusiness.lng });
+      setZoom(15);
+    }
+  }, [selectedBusiness]);
+
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+  if (!apiKey) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-8 text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md">
+          <Compass className="h-12 w-12 text-primary/40 mx-auto mb-4" />
+          <h3 className="text-lg font-bold mb-2">Google Maps API Key Required</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            To see the real interactive map, please add your Google Maps API Key to the .env file as:
+          </p>
+          <code className="block bg-slate-50 p-2 rounded text-xs font-mono mb-4">
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
+          </code>
+          <p className="text-xs text-muted-foreground">
+            You can get a key from the Google Cloud Console.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 bg-[#f8f9fa] overflow-hidden">
-      {/* Real Map Placeholder Image */}
-      <div className="absolute inset-0 z-0">
-        <Image 
-          src="https://picsum.photos/seed/nyc-map-aerial/1200/800" 
-          alt="Map Background"
-          fill
-          className={cn("object-cover transition-opacity duration-1000", isMapLoaded ? "opacity-100" : "opacity-0")}
-          data-ai-hint="city map"
-        />
-        {/* Overlay grid for that "digital map" feel */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none" 
-             style={{ 
-               backgroundImage: "linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)", 
-               backgroundSize: "40px 40px" 
-             }}>
-        </div>
-        {/* Subtle radial gradient to focus on center */}
-        <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/5 pointer-events-none" />
-      </div>
-
-      {/* Markers Simulation */}
-      <div className="relative w-full h-full z-10">
-        {!isMapLoaded ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 bg-slate-50/90 backdrop-blur-sm">
-            <Compass className="h-12 w-12 text-primary/40 animate-spin" />
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-sm font-bold text-primary/60">Rendering Map...</span>
-              <span className="text-xs text-muted-foreground animate-pulse">Syncing location data</span>
-            </div>
-          </div>
-        ) : (
-          <div className="relative w-full h-full">
-            {results.map((b, idx) => {
-              const pos = getMarkerPosition(idx);
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => onMarkerClick(b)}
-                  style={{ 
-                    left: pos.left, 
-                    top: pos.top 
-                  }}
-                  className={cn(
-                    "absolute flex flex-col items-center group transition-all duration-300 hover:scale-110 active:scale-95 animate-in fade-in zoom-in-50 duration-500",
-                    selectedBusiness?.id === b.id ? "z-30" : "z-20"
-                  )}
-                >
-                  <div className={cn(
-                    "flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-xl border-2 transition-all transform -translate-y-2 group-hover:-translate-y-4",
-                    selectedBusiness?.id === b.id ? "border-primary scale-110 ring-4 ring-primary/20" : "border-transparent"
-                  )}>
-                    <MapPin className={cn("h-4 w-4", selectedBusiness?.id === b.id ? "text-primary" : "text-secondary")} />
-                    <span className="text-xs font-bold whitespace-nowrap">{b.name}</span>
-                  </div>
-                  <div className={cn(
-                    "w-3 h-3 rounded-full border-2 border-white shadow-lg",
-                    selectedBusiness?.id === b.id ? "bg-primary scale-125" : "bg-secondary"
-                  )} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <APIProvider apiKey={apiKey}>
+        <Map
+          style={{ width: '100%', height: '100%' }}
+          defaultCenter={mapCenter}
+          center={mapCenter}
+          defaultZoom={zoom}
+          zoom={zoom}
+          mapId="bf50473b272551" // Required for Advanced Markers
+          onZoomChanged={(e) => setZoom(e.detail.zoom)}
+          onCenterChanged={(e) => setMapCenter(e.detail.center)}
+          disableDefaultUI={true}
+        >
+          {results.map((b) => (
+            <AdvancedMarker
+              key={b.id}
+              position={{ lat: b.lat, lng: b.lng }}
+              onClick={() => onMarkerClick(b)}
+            >
+              <div className={cn(
+                "transition-all transform hover:scale-110",
+                selectedBusiness?.id === b.id ? "z-50 scale-125" : "z-10"
+              )}>
+                <Pin 
+                  background={selectedBusiness?.id === b.id ? '#247ECC' : '#4DDBDB'} 
+                  borderColor={'#ffffff'} 
+                  glyphColor={'#ffffff'}
+                  scale={selectedBusiness?.id === b.id ? 1.2 : 1}
+                />
+              </div>
+            </AdvancedMarker>
+          ))}
+        </Map>
+      </APIProvider>
 
       {/* Map Controls */}
       <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-40">
-        <div className="flex flex-col bg-white rounded-lg shadow-xl border overflow-hidden">
-          <Button variant="ghost" size="icon" className="h-10 w-10 border-b rounded-none hover:bg-slate-50"><ZoomIn className="h-5 w-5" /></Button>
-          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-none hover:bg-slate-50"><ZoomOut className="h-5 w-5" /></Button>
-        </div>
-        <Button variant="default" size="icon" className="h-10 w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border">
+        <Button 
+          variant="default" 
+          size="icon" 
+          className="h-10 w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border"
+          onClick={() => {
+            if (results.length > 0) {
+              setMapCenter({ lat: results[0].lat, lng: results[0].lng });
+              setZoom(13);
+            }
+          }}
+        >
           <Navigation className="h-5 w-5" />
         </Button>
       </div>
 
       {/* Map Branding Simulation */}
       <div className="absolute bottom-2 left-6 text-[10px] text-slate-700 font-bold z-40 bg-white/70 px-2 py-0.5 rounded backdrop-blur-md flex items-center gap-4">
-        <span>© 2025 ClientsFinding Map Data</span>
+        <span>© 2025 ClientsFinding Real-time Data</span>
         <div className="flex items-center gap-1">
           <div className="w-10 h-0.5 bg-slate-400" />
-          <span>500 m</span>
+          <span>Google Maps Platform</span>
         </div>
       </div>
     </div>
