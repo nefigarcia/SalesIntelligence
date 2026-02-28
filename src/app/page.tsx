@@ -145,6 +145,7 @@ function DashboardContent() {
       <div className="flex min-h-screen w-full bg-background overflow-hidden font-body">
         <AppSidebar 
           activeView={activeView} 
+          selectedListId={selectedListId}
           onViewChange={(view, listId) => {
             setActiveView(view);
             if (listId !== undefined) setSelectedListId(listId);

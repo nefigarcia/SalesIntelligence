@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -11,7 +10,8 @@ import {
   LogOut,
   MoreVertical,
   Trash2,
-  FolderPlus
+  FolderPlus,
+  Loader2
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,7 +31,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
@@ -57,10 +57,11 @@ import { Label } from "@/components/ui/label";
 
 interface AppSidebarProps {
   activeView: ViewState;
+  selectedListId: string | null;
   onViewChange: (view: ViewState, listId?: string | null) => void;
 }
 
-export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSidebarProps) {
   const { user } = useUser();
   const auth = useAuth();
   const db = useFirestore();
@@ -69,6 +70,7 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -127,6 +129,59 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
       });
       errorEmitter.emit('permission-error', permissionError);
     });
+  };
+
+  const handleExport = async () => {
+    if (!db || !user || isExporting) return;
+    
+    setIsExporting(true);
+    toast({ title: "Export Started", description: "Fetching leads for CSV generation..." });
+
+    try {
+      const activeListId = selectedListId || "general";
+      const leadsRef = collection(db, "users", user.uid, "leadLists", activeListId, "leads");
+      const snapshot = await getDocs(leadsRef);
+      
+      if (snapshot.empty) {
+        toast({ variant: "destructive", title: "Export Failed", description: "This list has no leads to export." });
+        setIsExporting(false);
+        return;
+      }
+
+      const headers = ["Name", "Category", "Address", "Phone", "Email", "Website", "Rating", "Reviews", "Saved At"];
+      const rows = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return [
+          `"${data.name || ''}"`,
+          `"${data.category || ''}"`,
+          `"${data.address || ''}"`,
+          `"${data.phoneNumber || ''}"`,
+          `"${data.email || ''}"`,
+          `"${data.website || ''}"`,
+          data.rating || 0,
+          data.reviews || 0,
+          data.savedAt ? new Date(data.savedAt.seconds * 1000).toLocaleString() : ''
+        ].join(",");
+      });
+
+      const csvContent = [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `clientsfinding-leads-${activeListId}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({ title: "Export Complete", description: "Your CSV file is ready." });
+    } catch (err) {
+      console.error("Export Error:", err);
+      toast({ variant: "destructive", title: "Export Failed", description: "An error occurred while generating the CSV." });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -266,10 +321,11 @@ export function AppSidebar({ activeView, onViewChange }: AppSidebarProps) {
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => toast({ title: "Export Started", description: "Generating your CSV file..." })} 
+            onClick={handleExport} 
+            disabled={isExporting}
             className="w-full bg-sidebar-accent/30 border-sidebar-border/30 text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white transition-all"
           >
-            <Download className="h-4 w-4 mr-2" />
+            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
             <span className="group-data-[collapsible=icon]:hidden">Export Leads</span>
           </Button>
           <div className="flex items-center gap-3 px-1 py-1">
