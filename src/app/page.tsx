@@ -68,7 +68,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleSearch = (query: string, location: string) => {
+  const handleSearch = (fullQuery: string) => {
     setActiveView("search");
     setIsSearching(true);
     setSelectedBusiness(null); 
@@ -77,7 +77,22 @@ export default function Dashboard() {
     setTimeout(() => {
       const seed = Date.now();
       
-      // Basic Geocoding simulation
+      // Parse query for location (e.g. "Plumbers in Utah")
+      let searchTerm = fullQuery;
+      let location = "New York, NY"; // Default fallback
+      
+      const inMatch = fullQuery.toLowerCase().split(/\s+in\s+/);
+      const nearMatch = fullQuery.toLowerCase().split(/\s+near\s+/);
+      
+      if (inMatch.length > 1) {
+        searchTerm = inMatch[0].trim();
+        location = inMatch[1].trim();
+      } else if (nearMatch.length > 1) {
+        searchTerm = nearMatch[0].trim();
+        location = nearMatch[1].trim();
+      }
+
+      // Basic Geocoding simulation based on location string
       let baseLat = 40.7128; // Default NYC
       let baseLng = -74.0060;
 
@@ -102,15 +117,15 @@ export default function Dashboard() {
       
       const mockResults: Business[] = Array.from({ length: 8 }).map((_, i) => ({
         id: `b-${seed}-${i}`,
-        name: i === 0 ? `${query} Pro ${location.split(',')[0]}` : `${['Elite', 'Premium', 'Star', 'Global', 'Local'][i % 5]} ${query} ${i + 1}`,
-        category: query || "Business",
+        name: i === 0 ? `${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} Pro ${location.charAt(0).toUpperCase() + location.slice(1)}` : `${['Elite', 'Premium', 'Star', 'Global', 'Local'][i % 5]} ${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} ${i + 1}`,
+        category: searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1) || "Business",
         address: `${100 + i * 25} Main St, ${location}`,
         phone: `(555) ${100 + i}-${2000 + i}`,
-        email: `contact@${query.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
-        website: `https://www.${query.toLowerCase().replace(/\s/g, '')}${i}.com`,
+        email: `contact@${searchTerm.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
+        website: `https://www.${searchTerm.toLowerCase().replace(/\s/g, '')}${i}.com`,
         rating: 4.0 + Math.random(),
         reviews: 20 + Math.floor(Math.random() * 200),
-        lat: baseLat + (Math.random() - 0.5) * 0.05, // Closer scatter
+        lat: baseLat + (Math.random() - 0.5) * 0.05,
         lng: baseLng + (Math.random() - 0.5) * 0.05,
       }));
 
@@ -118,7 +133,7 @@ export default function Dashboard() {
       setIsSearching(false);
       toast({
         title: "Search Complete",
-        description: `Found ${mockResults.length} leads for "${query}" in ${location}.`,
+        description: `Found ${mockResults.length} leads for "${searchTerm}" in ${location}.`,
       });
     }, 1000);
   };
@@ -160,7 +175,7 @@ export default function Dashboard() {
           }} 
         />
         <SidebarInset className="flex flex-col h-screen">
-          <header className="flex h-16 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
+          <header className="flex h-20 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
             <SearchHeader onSearch={handleSearch} isLoading={isSearching} />
           </header>
           
