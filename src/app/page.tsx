@@ -14,6 +14,7 @@ import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { LogIn, Search as SearchIcon, RefreshCcw } from "lucide-react";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { cn } from "@/lib/utils";
 
 export type Business = {
   id: string;
