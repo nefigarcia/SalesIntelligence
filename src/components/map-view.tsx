@@ -8,9 +8,8 @@ import {
   Map, 
   AdvancedMarker, 
   Pin,
-  useMap
 } from "@vis.gl/react-google-maps";
-import { Navigation, Compass, Loader2 } from "lucide-react";
+import { Navigation, Compass, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -44,19 +43,41 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
 
   if (!apiKey) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 p-8 text-center">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md">
-          <Compass className="h-12 w-12 text-primary/40 mx-auto mb-4" />
-          <h3 className="text-lg font-bold mb-2">Google Maps API Key Required</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            To see the real interactive map, please add your Google Maps API Key to the .env file as:
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 p-8 text-center overflow-auto">
+        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-lg border border-slate-100">
+          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Compass className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-2xl font-bold mb-4 text-slate-900">Google Maps Integration Required</h3>
+          <p className="text-slate-600 mb-6 leading-relaxed">
+            To view the live interactive map and business markers, you need to provide a Google Maps API Key in your environment configuration.
           </p>
-          <code className="block bg-slate-50 p-2 rounded text-xs font-mono mb-4">
-            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
-          </code>
-          <p className="text-xs text-muted-foreground">
-            You can get a key from the Google Cloud Console.
-          </p>
+          
+          <div className="bg-slate-50 p-6 rounded-2xl text-left space-y-4 mb-6 border border-slate-100">
+            <div className="flex gap-3">
+              <div className="bg-primary text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</div>
+              <p className="text-sm text-slate-700">Enable <b>Maps JavaScript API</b> in Google Cloud Console.</p>
+            </div>
+            <div className="flex gap-3">
+              <div className="bg-primary text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</div>
+              <p className="text-sm text-slate-700">Create an API Key and add it to <code>.env</code> as:<br/>
+                <code className="text-[11px] bg-white px-2 py-1 rounded border border-slate-200 mt-2 block font-mono text-primary">
+                  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+                </code>
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <div className="bg-primary text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</div>
+              <p className="text-sm text-slate-700">Create a <b>Map ID</b> for Advanced Markers and update the code.</p>
+            </div>
+          </div>
+          
+          <Button 
+            className="w-full rounded-xl py-6 font-bold"
+            onClick={() => window.open('https://console.cloud.google.com/google/maps-apis/credentials', '_blank')}
+          >
+            Go to Cloud Console
+          </Button>
         </div>
       </div>
     );
@@ -71,7 +92,7 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
           center={mapCenter}
           defaultZoom={zoom}
           zoom={zoom}
-          mapId="bf50473b272551" // Required for Advanced Markers
+          mapId="DEMO_MAP_ID" // Replace with your actual Map ID from Google Console
           onZoomChanged={(e) => setZoom(e.detail.zoom)}
           onCenterChanged={(e) => setMapCenter(e.detail.center)}
           disableDefaultUI={true}
@@ -83,11 +104,11 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
               onClick={() => onMarkerClick(b)}
             >
               <div className={cn(
-                "transition-all transform hover:scale-110",
+                "transition-all transform hover:scale-110 cursor-pointer",
                 selectedBusiness?.id === b.id ? "z-50 scale-125" : "z-10"
               )}>
                 <Pin 
-                  background={selectedBusiness?.id === b.id ? '#247ECC' : '#4DDBDB'} 
+                  background={selectedBusiness?.id === b.id ? 'hsl(var(--primary))' : 'hsl(var(--secondary))'} 
                   borderColor={'#ffffff'} 
                   glyphColor={'#ffffff'}
                   scale={selectedBusiness?.id === b.id ? 1.2 : 1}
@@ -103,7 +124,7 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
         <Button 
           variant="default" 
           size="icon" 
-          className="h-10 w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border"
+          className="h-10 w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border border-slate-200"
           onClick={() => {
             if (results.length > 0) {
               setMapCenter({ lat: results[0].lat, lng: results[0].lng });
@@ -115,13 +136,11 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
         </Button>
       </div>
 
-      {/* Map Branding Simulation */}
-      <div className="absolute bottom-2 left-6 text-[10px] text-slate-700 font-bold z-40 bg-white/70 px-2 py-0.5 rounded backdrop-blur-md flex items-center gap-4">
-        <span>© 2025 ClientsFinding Real-time Data</span>
-        <div className="flex items-center gap-1">
-          <div className="w-10 h-0.5 bg-slate-400" />
-          <span>Google Maps Platform</span>
-        </div>
+      {/* Map Branding */}
+      <div className="absolute bottom-2 left-6 text-[10px] text-slate-500 font-bold z-40 bg-white/80 px-3 py-1 rounded-full backdrop-blur-sm border border-slate-200/50 flex items-center gap-3">
+        <span className="flex items-center gap-1"><Info className="h-2.5 w-2.5" /> Interactive Lead Map</span>
+        <span className="opacity-50">|</span>
+        <span>© 2025 ClientsFinding Data</span>
       </div>
     </div>
   );
