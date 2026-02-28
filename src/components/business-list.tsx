@@ -233,24 +233,26 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                     <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
                     <span className="line-clamp-1">{b.address}</span>
                   </div>
+                  
+                  {/* Phone Section */}
                   <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
                     <Phone className="h-3.5 w-3.5 shrink-0 text-primary/70" />
                     <span>{b.phone}</span>
                   </div>
-                  {(b.email || b.website) && (
-                    <div className="flex flex-col gap-1.5 mt-1 pt-1 border-t border-slate-100/50">
-                      {b.email && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{b.email}</span>
-                        </div>
-                      )}
-                      {b.website && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Globe className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{b.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-                        </div>
-                      )}
+
+                  {/* Website Section - Displayed if it exists */}
+                  {b.website && (
+                    <div className="flex items-center gap-2 text-xs text-primary font-bold">
+                      <Globe className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{b.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                    </div>
+                  )}
+
+                  {/* Email Section - Displayed if it exists */}
+                  {b.email && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                      <span className="truncate">{b.email}</span>
                     </div>
                   )}
                 </div>
