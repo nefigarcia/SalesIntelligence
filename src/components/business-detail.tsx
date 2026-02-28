@@ -121,6 +121,7 @@ export function BusinessDetail({ business: initialBusiness, onClose }: BusinessD
           reviews: business.reviews,
           website: business.website || "",
           email: business.email || "",
+          status: "new", // Software engineering best practice: initialize state
           savedAt: serverTimestamp(),
         });
       });

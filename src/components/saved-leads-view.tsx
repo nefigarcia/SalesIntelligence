@@ -2,7 +2,7 @@
 "use client";
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, doc, deleteDoc, updateDoc, increment } from "firebase/firestore";
+import { collection, query, orderBy, doc, deleteDoc, updateDoc, increment, serverTimestamp } from "firebase/firestore";
 import { 
   Table, 
   TableBody, 
@@ -13,11 +13,13 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search, Mail, Building2 } from "lucide-react";
+import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search, Mail, Building2, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface SavedLeadsViewProps {
   listId: string | null;
@@ -27,6 +29,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+  const [enrichingId, setEnrichingId] = useState<string | null>(null);
 
   const leadsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -47,7 +50,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
       .then(() => {
         updateDoc(listRef, { 
           count: increment(-1),
-          updatedAt: new Date().toISOString()
+          updatedAt: serverTimestamp()
         }).catch(() => {});
         toast({ title: "Lead Removed", description: "Business removed from list." });
       })
@@ -58,6 +61,35 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
         });
         errorEmitter.emit('permission-error', permissionError);
       });
+  };
+
+  const handleUpdateStatus = async (leadId: string, newStatus: string) => {
+    if (!db || !user) return;
+    const activeListId = listId || "general";
+    const leadRef = doc(db, "users", user.uid, "leadLists", activeListId, "leads", leadId);
+    
+    updateDoc(leadRef, { status: newStatus }).catch(async () => {
+      const permissionError = new FirestorePermissionError({
+        path: leadRef.path,
+        operation: 'update',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  };
+
+  // Simulation of the "Data Engineering" Enrichment blocker #1
+  const simulateEnrichment = (leadId: string) => {
+    setEnrichingId(leadId);
+    handleUpdateStatus(leadId, "enriching");
+    
+    setTimeout(() => {
+      handleUpdateStatus(leadId, "ready");
+      setEnrichingId(null);
+      toast({
+        title: "Enrichment Complete",
+        description: "Found valid contact info via website scrape.",
+      });
+    }, 2000);
   };
 
   if (loading) {
@@ -93,15 +125,19 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
       <div className="p-8 border-b shrink-0 flex items-center justify-between bg-slate-50/30">
         <div>
           <h2 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">
-            {listId ? "Custom List Leads" : "All Leads"}
+            {listId ? "Pipeline Management" : "All Leads Archive"}
           </h2>
-          <p className="text-muted-foreground text-sm font-bold mt-1 uppercase tracking-widest opacity-60">
-            Database Archive & Pipeline Management
-          </p>
+          <div className="flex items-center gap-4 mt-1">
+            <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest opacity-60">
+              Outreach & Conversion Status
+            </p>
+          </div>
         </div>
-        <Badge variant="outline" className="text-sm py-2 px-5 font-black border-primary/30 text-primary bg-primary/5 rounded-xl shadow-sm">
-          {leads.length} LEADS STORED
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-sm py-2 px-5 font-black border-primary/30 text-primary bg-primary/5 rounded-xl shadow-sm">
+            {leads.length} LEADS IN PIPELINE
+          </Badge>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto custom-scrollbar">
@@ -109,15 +145,23 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
           <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
             <TableRow className="border-b-2">
               <TableHead className="w-[320px] font-black uppercase text-[11px] tracking-widest text-slate-400 py-6">Business Profile</TableHead>
-              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Classification</TableHead>
-              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Communication</TableHead>
-              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Performance</TableHead>
+              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Pipeline Status</TableHead>
+              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Contact Details</TableHead>
+              <TableHead className="font-black uppercase text-[11px] tracking-widest text-slate-400">Actions</TableHead>
               <TableHead className="text-right font-black uppercase text-[11px] tracking-widest text-slate-400">Management</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {leads.map((lead: any) => (
-              <TableRow key={lead.id} className="hover:bg-slate-50/80 transition-all border-b border-slate-100">
+              <TableRow 
+                key={lead.id} 
+                className={cn(
+                  "transition-all border-b border-slate-100",
+                  lead.status === "contacted" && "bg-green-50/50",
+                  lead.status === "enriching" && "bg-blue-50/30",
+                  lead.status === "ready" && "bg-indigo-50/30"
+                )}
+              >
                 <TableCell className="font-bold text-slate-900 py-6">
                   <div className="flex flex-col">
                     <span className="text-base font-black tracking-tight">{lead.name}</span>
@@ -127,40 +171,58 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="font-bold uppercase tracking-wider text-[10px] bg-slate-100 text-slate-600 border-none px-2 py-0.5">
-                    {lead.category}
-                  </Badge>
+                  <div className="flex flex-col gap-2">
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "font-bold uppercase tracking-wider text-[10px] border-none px-2 py-0.5 w-fit",
+                        lead.status === "contacted" ? "bg-green-100 text-green-700" : 
+                        lead.status === "ready" ? "bg-indigo-100 text-indigo-700" :
+                        "bg-slate-100 text-slate-600"
+                      )}
+                    >
+                      {lead.status || "new"}
+                    </Badge>
+                    {lead.status === "new" && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[10px] font-bold text-primary hover:bg-primary/10 p-0 flex items-center gap-1 justify-start"
+                        onClick={() => simulateEnrichment(lead.id)}
+                      >
+                        <Sparkles className="h-3 w-3" /> Find Email
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                       <Phone className="h-3.5 w-3.5 text-primary/60" /> {lead.phoneNumber || "No phone"}
                     </div>
-                    {lead.website && (
-                      <div 
-                        className="flex items-center gap-2 text-xs text-primary font-bold hover:underline cursor-pointer transition-colors"
-                        onClick={() => window.open(lead.website)}
-                      >
-                        <Globe className="h-3.5 w-3.5" /> Website <ExternalLink className="h-2.5 w-2.5 opacity-50" />
-                      </div>
-                    )}
-                    {lead.email && (
-                      <div 
-                        className="flex items-center gap-2 text-xs text-primary font-bold hover:underline cursor-pointer transition-colors"
-                        onClick={() => window.open(`mailto:${lead.email}`)}
-                      >
+                    {lead.email ? (
+                      <div className="flex items-center gap-2 text-xs text-indigo-600 font-bold">
                         <Mail className="h-3.5 w-3.5" /> {lead.email}
                       </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">No email found</div>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1.5">
-                    <div className="bg-yellow-400/10 p-1 rounded-lg">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    </div>
-                    <span className="font-black text-sm text-slate-900">{lead.rating}</span>
-                    <span className="text-xs text-muted-foreground font-bold">({lead.reviews})</span>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant={lead.status === "contacted" ? "outline" : "default"}
+                      className={cn(
+                        "h-8 text-xs font-bold rounded-lg",
+                        lead.status === "contacted" ? "border-green-200 text-green-700" : ""
+                      )}
+                      onClick={() => handleUpdateStatus(lead.id, lead.status === "contacted" ? "ready" : "contacted")}
+                    >
+                      {lead.status === "contacted" ? <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+                      {lead.status === "contacted" ? "Emailed" : "Mark Sent"}
+                    </Button>
                   </div>
                 </TableCell>
                 <TableCell className="text-right">

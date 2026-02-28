@@ -29,9 +29,14 @@
         "category": { "type": "string" },
         "rating": { "type": "number" },
         "reviews": { "type": "number" },
+        "status": { 
+          "type": "string", 
+          "enum": ["new", "enriching", "ready", "contacted", "replied"],
+          "description": "The current stage in the lead generation pipeline."
+        },
         "savedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "name", "address", "category"]
+      "required": ["id", "name", "address", "category", "status"]
     },
     "LeadList": {
       "$schema": "http://json-schema.org/draft-07/schema#",

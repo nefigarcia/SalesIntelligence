@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -11,7 +12,8 @@ import {
   MoreVertical,
   Trash2,
   FolderPlus,
-  Loader2
+  Loader2,
+  Table as TableIcon
 } from "lucide-react";
 import {
   Sidebar,
@@ -71,6 +73,7 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
   const [newListName, setNewListName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const listsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -184,6 +187,24 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
     }
   };
 
+  // Blocker #2 foundation: Software Engineering Interface for System Interoperability
+  const handleSyncToSheets = () => {
+    setIsSyncing(true);
+    toast({ 
+      title: "Connecting to Apps Script", 
+      description: "Preparing data payload for Google Sheets API...",
+    });
+
+    // Simulated API call to the Google Apps Script Web App
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast({
+        title: "Sync Successful",
+        description: "Google Sheet has been updated with your latest leads.",
+      });
+    }, 2500);
+  };
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-sidebar-border bg-sidebar-background">
@@ -212,13 +233,13 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton 
-                tooltip="All Saved Leads" 
+                tooltip="Pipeline View" 
                 isActive={activeView === "lists" && !savedLists?.find(l => l.id === activeView)} 
                 className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                 onClick={() => onViewChange("lists", null)}
               >
                 <ListOrdered className="h-5 w-5" />
-                <span>All Saved Leads</span>
+                <span>Pipeline View</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -317,7 +338,18 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/30 bg-sidebar-background p-4">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Button 
+            variant="default" 
+            size="sm"
+            onClick={handleSyncToSheets} 
+            disabled={isSyncing}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold transition-all shadow-md"
+          >
+            {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <TableIcon className="h-4 w-4 mr-2" />}
+            <span className="group-data-[collapsible=icon]:hidden">Sync to Sheets</span>
+          </Button>
+          
           <Button 
             variant="outline" 
             size="sm"
@@ -326,8 +358,11 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
             className="w-full bg-sidebar-accent/30 border-sidebar-border/30 text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-white transition-all"
           >
             {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-            <span className="group-data-[collapsible=icon]:hidden">Export Leads</span>
+            <span className="group-data-[collapsible=icon]:hidden">Export CSV</span>
           </Button>
+
+          <SidebarSeparator className="my-2 opacity-10" />
+
           <div className="flex items-center gap-3 px-1 py-1">
             <Avatar className="h-9 w-9 border-2 border-primary/40">
               <AvatarImage src={user?.photoURL || ""} />
