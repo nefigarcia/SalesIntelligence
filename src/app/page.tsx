@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SearchHeader } from "@/components/search-header";
@@ -11,7 +12,7 @@ import { SavedLeadsView } from "@/components/saved-leads-view";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
-import { LogIn, Search as SearchIcon } from "lucide-react";
+import { LogIn, Search as SearchIcon, RefreshCcw } from "lucide-react";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 export type Business = {
@@ -33,113 +34,125 @@ export type ViewState = "search" | "lists" | "analytics";
 export default function Dashboard() {
   const { user, loading: userLoading } = useUser();
   const auth = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+
   const [activeView, setActiveView] = useState<ViewState>("search");
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.0060 }); // Default NYC
-  const [zoom, setZoom] = useState(12);
-  const { toast } = useToast();
+  const [showSearchThisArea, setShowSearchThisArea] = useState(false);
+  
+  // Map State from URL or Defaults
+  const [mapCenter, setMapCenter] = useState({ 
+    lat: parseFloat(searchParams.get("lat") || "40.7128"), 
+    lng: parseFloat(searchParams.get("lng") || "-74.0060") 
+  });
+  const [zoom, setZoom] = useState(parseInt(searchParams.get("z") || "12"));
+  const initialSearchPerformed = useRef(false);
 
-  const handleSignIn = async () => {
-    if (!auth) {
-      toast({
-        variant: "destructive",
-        title: "Auth Not Initialized",
-        description: "Firebase Authentication is not ready. Check your .env config.",
-      });
-      return;
-    }
+  // Sync URL with Map State (Throttled)
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("lat", mapCenter.lat.toFixed(6));
+    params.set("lng", mapCenter.lng.toFixed(6));
+    params.set("z", zoom.toString());
+    
+    // Use replace to avoid bloating history during pans
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+  }, [mapCenter, zoom, pathname, searchParams]);
 
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
-      toast({
-        title: "Welcome!",
-        description: "Successfully signed in with Google.",
-      });
-    } catch (error: any) {
-      console.error("Auth Error:", error);
-      toast({
-        variant: "destructive",
-        title: "Sign In Failed",
-        description: error.message || "Please check your Firebase Console settings.",
-      });
-    }
-  };
-
-  const handleSearch = (fullQuery: string) => {
+  const handleSearch = useCallback((fullQuery: string, useCurrentView = false) => {
     setActiveView("search");
     setIsSearching(true);
-    setSelectedBusiness(null); 
+    setSelectedBusiness(null);
+    setShowSearchThisArea(false);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("q", fullQuery);
+    router.replace(`${pathname}?${params.toString()}`);
     
-    // Simulate finding multiple businesses across the area
+    // Simulate finding businesses
     setTimeout(() => {
       const seed = Date.now();
-      
       let searchTerm = fullQuery;
-      let locationName = "";
-      
-      const inMatch = fullQuery.toLowerCase().split(/\s+in\s+/);
-      const nearMatch = fullQuery.toLowerCase().split(/\s+near\s+/);
-      
-      let baseLat = mapCenter.lat;
-      let baseLng = mapCenter.lng;
+      let targetLat = mapCenter.lat;
+      let targetLng = mapCenter.lng;
       let shouldMoveMap = false;
 
-      if (inMatch.length > 1) {
-        searchTerm = inMatch[0].trim();
-        locationName = inMatch[1].trim();
-        shouldMoveMap = true;
-      } else if (nearMatch.length > 1) {
-        searchTerm = nearMatch[0].trim();
-        locationName = nearMatch[1].trim();
-        shouldMoveMap = true;
+      // Logic for "in/near" location parsing
+      if (!useCurrentView) {
+        const inMatch = fullQuery.toLowerCase().split(/\s+in\s+/);
+        const nearMatch = fullQuery.toLowerCase().split(/\s+near\s+/);
+        
+        if (inMatch.length > 1 || nearMatch.length > 1) {
+          const locationName = (inMatch[1] || nearMatch[1]).trim();
+          searchTerm = (inMatch[0] || nearMatch[0]).trim();
+          shouldMoveMap = true;
+
+          const locLower = locationName.toLowerCase();
+          if (locLower.includes("utah") || locLower.includes("salt lake")) {
+            targetLat = 40.7608; targetLng = -111.8910;
+          } else if (locLower.includes("california") || locLower.includes("la")) {
+            targetLat = 34.0522; targetLng = -118.2437;
+          } else if (locLower.includes("texas") || locLower.includes("austin")) {
+            targetLat = 30.2672; targetLng = -97.7431;
+          } else if (locLower.includes("nevada") || locLower.includes("las vegas")) {
+            targetLat = 36.1716; targetLng = -115.1391;
+          }
+          
+          setMapCenter({ lat: targetLat, lng: targetLng });
+          setZoom(13);
+        }
       }
 
-      // Geocoding simulation for specified locations
-      if (shouldMoveMap && locationName) {
-        const locLower = locationName.toLowerCase();
-        if (locLower.includes("utah") || locLower.includes("salt lake") || locLower.includes("slc")) {
-          baseLat = 40.7608; baseLng = -111.8910;
-        } else if (locLower.includes("california") || locLower.includes("los angeles") || locLower.includes("la")) {
-          baseLat = 34.0522; baseLng = -118.2437;
-        } else if (locLower.includes("nevada") || locLower.includes("las vegas")) {
-          baseLat = 36.1716; baseLng = -115.1391;
-        } else if (locLower.includes("texas") || locLower.includes("austin")) {
-          baseLat = 30.2672; baseLng = -97.7431;
-        } else {
-          // Randomize slightly for unknown locations so it doesn't always show NYC
-          baseLat = 35 + Math.random() * 5;
-          baseLng = -100 + Math.random() * 10;
-        }
-        setMapCenter({ lat: baseLat, lng: baseLng });
-        setZoom(12);
-      }
-      
-      const mockResults: Business[] = Array.from({ length: 8 }).map((_, i) => ({
+      const mockResults: Business[] = Array.from({ length: 12 }).map((_, i) => ({
         id: `b-${seed}-${i}`,
         name: `${['Elite', 'Premium', 'Star', 'Global', 'Local', 'Pro', 'Apex', 'Direct'][i % 8]} ${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} ${i + 1}`,
         category: searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1) || "Business",
-        address: `${100 + i * 25} Main St, ${locationName || 'Local Area'}`,
+        address: `${100 + i * 25} Main St, Region`,
         phone: `(555) ${100 + i}-${2000 + i}`,
         email: `contact@${searchTerm.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
         website: `https://www.${searchTerm.toLowerCase().replace(/\s/g, '')}${i}.com`,
         rating: 4.0 + Math.random(),
         reviews: 20 + Math.floor(Math.random() * 200),
-        lat: baseLat + (Math.random() - 0.5) * 0.08, // Wider spread
-        lng: baseLng + (Math.random() - 0.5) * 0.08,
+        lat: targetLat + (Math.random() - 0.5) * 0.05,
+        lng: targetLng + (Math.random() - 0.5) * 0.05,
       }));
 
       setSearchResults(mockResults);
       setIsSearching(false);
-      toast({
-        title: "Search Complete",
-        description: `Found ${mockResults.length} leads for "${searchTerm}" in this area.`,
-      });
+      
+      if (!useCurrentView) {
+        toast({
+          title: "Search Complete",
+          description: `Found ${mockResults.length} results for "${searchTerm}".`,
+        });
+      }
     }, 800);
+  }, [mapCenter, searchParams, router, pathname, toast]);
+
+  // Handle Initial Search from URL
+  useEffect(() => {
+    const queryParam = searchParams.get("q");
+    if (queryParam && !initialSearchPerformed.current && user) {
+      initialSearchPerformed.current = true;
+      handleSearch(queryParam);
+    }
+  }, [searchParams, user, handleSearch]);
+
+  const handleSignIn = async () => {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Auth Error:", error);
+    }
   };
 
   if (userLoading) {
@@ -180,7 +193,11 @@ export default function Dashboard() {
         />
         <SidebarInset className="flex flex-col h-screen">
           <header className="flex h-20 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
-            <SearchHeader onSearch={handleSearch} isLoading={isSearching} />
+            <SearchHeader 
+              onSearch={handleSearch} 
+              isLoading={isSearching} 
+              initialValue={searchParams.get("q") || ""} 
+            />
           </header>
           
           <main className="flex-1 flex flex-row overflow-hidden relative">
@@ -193,9 +210,27 @@ export default function Dashboard() {
                     selectedBusiness={selectedBusiness}
                     center={mapCenter}
                     zoom={zoom}
-                    onCenterChange={(c) => setMapCenter(c)}
-                    onZoomChange={(z) => setZoom(z)}
+                    onCenterChange={(c) => {
+                      setMapCenter(c);
+                      setShowSearchThisArea(true);
+                    }}
+                    onZoomChange={(z) => {
+                      setZoom(z);
+                      setShowSearchThisArea(true);
+                    }}
                   />
+                  
+                  {showSearchThisArea && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30">
+                      <Button 
+                        onClick={() => handleSearch(searchParams.get("q") || "Business", true)}
+                        className="bg-white text-primary hover:bg-slate-50 border shadow-xl rounded-full px-6 py-5 font-bold gap-2 animate-in fade-in slide-in-from-top-4"
+                      >
+                        <RefreshCcw className={cn("h-4 w-4", isSearching && "animate-spin")} />
+                        Search this area
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="w-96 border-l bg-white flex flex-col shrink-0 z-10 shadow-lg">
