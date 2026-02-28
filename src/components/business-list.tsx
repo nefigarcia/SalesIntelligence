@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -8,7 +7,6 @@ import {
   MapPin, 
   Phone, 
   ArrowRight, 
-  MousePointer2, 
   Globe, 
   Mail, 
   CheckCircle2, 
@@ -250,7 +248,7 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                       {b.website && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Globe className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{b.website.replace(/^https?:\/\//, '')}</span>
+                          <span className="truncate">{b.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
                         </div>
                       )}
                     </div>

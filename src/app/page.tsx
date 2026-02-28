@@ -101,7 +101,7 @@ function DashboardContent() {
           name: place.name || "Unknown Business",
           category: place.types?.[0]?.replace(/_/g, " ") || "Business",
           address: place.formatted_address || "No address available",
-          phone: "Contact for phone", // Phone requires a secondary "getDetails" call per result
+          phone: place.formatted_phone_number || "Contact for phone", 
           rating: place.rating || 0,
           reviews: place.user_ratings_total || 0,
           lat: place.geometry?.location?.lat() || 0,
