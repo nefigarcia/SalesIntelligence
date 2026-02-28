@@ -63,7 +63,7 @@ export default function Dashboard() {
       toast({
         variant: "destructive",
         title: "Sign In Failed",
-        description: error.message || "Please check your Firebase Console settings (Google Auth & Authorized Domains).",
+        description: error.message || "Please check your Firebase Console settings.",
       });
     }
   };
@@ -73,56 +73,33 @@ export default function Dashboard() {
     setIsSearching(true);
     setSelectedBusiness(null); 
     
+    // Simulate finding multiple businesses across the area
     setTimeout(() => {
       const seed = Date.now();
-      const mockResults: Business[] = [
-        {
-          id: `b-${seed}-1`,
-          name: `${query || "Premium"} ${location.split(',')[0]} Services`,
-          category: query || "Professional Service",
-          address: `123 North St, ${location}`,
-          phone: "(555) 123-4567",
-          email: `info@${query.toLowerCase().replace(/\s/g, '') || 'service'}.com`,
-          website: `https://www.${query.toLowerCase().replace(/\s/g, '') || 'service'}-pro.com`,
-          rating: 4.8,
-          reviews: 124,
-          lat: 40.7128 + (Math.random() - 0.5) * 0.05,
-          lng: -74.006 + (Math.random() - 0.5) * 0.05,
-        },
-        {
-          id: `b-${seed}-2`,
-          name: `Elite ${query || "Business"} Group`,
-          category: query || "Local Business",
-          address: `456 Central Ave, ${location}`,
-          phone: "(555) 987-6543",
-          email: `contact@elite-${query.toLowerCase().replace(/\s/g, '') || 'business'}.net`,
-          website: `https://elite-${query.toLowerCase().replace(/\s/g, '') || 'business'}.net`,
-          rating: 4.5,
-          reviews: 89,
-          lat: 40.7306 + (Math.random() - 0.5) * 0.05,
-          lng: -73.9352 + (Math.random() - 0.5) * 0.05,
-        },
-        {
-          id: `b-${seed}-3`,
-          name: `${location.split(',')[0]} ${query || "Specialist"} Hub`,
-          category: query || "Specialist",
-          address: `789 South Blvd, ${location}`,
-          phone: "(555) 456-7890",
-          email: `hello@${location.toLowerCase().split(',')[0]}-hub.org`,
-          website: `https://www.${location.toLowerCase().split(',')[0]}-hub.org`,
-          rating: 4.2,
-          reviews: 56,
-          lat: 40.7589 + (Math.random() - 0.5) * 0.05,
-          lng: -73.9851 + (Math.random() - 0.5) * 0.05,
-        },
-      ];
+      const baseLat = 40.7128; // Default to NYC center for mock
+      const baseLng = -74.0060;
+      
+      const mockResults: Business[] = Array.from({ length: 8 }).map((_, i) => ({
+        id: `b-${seed}-${i}`,
+        name: i === 0 ? `${query} Pro ${location.split(',')[0]}` : `${['Elite', 'Premium', 'Star', 'Global', 'Local'][i % 5]} ${query} ${i + 1}`,
+        category: query || "Business",
+        address: `${100 + i * 25} Main St, ${location}`,
+        phone: `(555) ${100 + i}-${2000 + i}`,
+        email: `contact@${query.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
+        website: `https://www.${query.toLowerCase().replace(/\s/g, '')}${i}.com`,
+        rating: 4.0 + Math.random(),
+        reviews: 20 + Math.floor(Math.random() * 200),
+        lat: baseLat + (Math.random() - 0.5) * 0.1, // Scatter markers
+        lng: baseLng + (Math.random() - 0.5) * 0.1,
+      }));
+
       setSearchResults(mockResults);
       setIsSearching(false);
       toast({
         title: "Search Complete",
         description: `Found ${mockResults.length} leads for "${query}" in ${location}.`,
       });
-    }, 1200);
+    }, 1000);
   };
 
   if (userLoading) {
