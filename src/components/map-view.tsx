@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Business } from "@/app/page";
 import { 
   APIProvider, 
@@ -16,31 +15,21 @@ interface MapViewProps {
   results: Business[];
   onMarkerClick: (b: Business) => void;
   selectedBusiness: Business | null;
+  center: { lat: number; lng: number };
+  zoom: number;
+  onCenterChange: (center: { lat: number; lng: number }) => void;
+  onZoomChange: (zoom: number) => void;
 }
 
-export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewProps) {
-  const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.006 });
-  const [zoom, setZoom] = useState(12);
-
-  // Update map center and zoom when search results change
-  useEffect(() => {
-    if (results.length > 0) {
-      // Simple logic to center the map on the results
-      const avgLat = results.reduce((sum, b) => sum + b.lat, 0) / results.length;
-      const avgLng = results.reduce((sum, b) => sum + b.lng, 0) / results.length;
-      setMapCenter({ lat: avgLat, lng: avgLng });
-      setZoom(12);
-    }
-  }, [results]);
-
-  // Update map center when a business is selected from the list
-  useEffect(() => {
-    if (selectedBusiness) {
-      setMapCenter({ lat: selectedBusiness.lat, lng: selectedBusiness.lng });
-      setZoom(15);
-    }
-  }, [selectedBusiness]);
-
+export function MapView({ 
+  results, 
+  onMarkerClick, 
+  selectedBusiness, 
+  center, 
+  zoom, 
+  onCenterChange, 
+  onZoomChange 
+}: MapViewProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
   if (!apiKey) {
@@ -86,13 +75,13 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
       <APIProvider apiKey={apiKey}>
         <Map
           style={{ width: '100%', height: '100%' }}
-          defaultCenter={mapCenter}
-          center={mapCenter}
+          defaultCenter={center}
+          center={center}
           defaultZoom={zoom}
           zoom={zoom}
-          mapId="DEMO_MAP_ID" // Note: Real Map ID required for Advanced Markers in production
-          onZoomChanged={(e) => setZoom(e.detail.zoom)}
-          onCenterChanged={(e) => setMapCenter(e.detail.center)}
+          mapId="DEMO_MAP_ID" 
+          onZoomChanged={(e) => onZoomChange(e.detail.zoom)}
+          onCenterChanged={(e) => onCenterChange(e.detail.center)}
           disableDefaultUI={true}
         >
           {results.map((b) => (
@@ -106,7 +95,7 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
                 selectedBusiness?.id === b.id ? "z-50 scale-125" : "z-10"
               )}>
                 <Pin 
-                  background={selectedBusiness?.id === b.id ? '#1A73E8' : '#EA4335'} // Google Red for dots, Blue for selected
+                  background={selectedBusiness?.id === b.id ? '#247ECC' : '#EA4335'} 
                   borderColor={'#ffffff'} 
                   glyphColor={'#ffffff'}
                   scale={selectedBusiness?.id === b.id ? 1.2 : 0.9}
@@ -127,8 +116,8 @@ export function MapView({ results, onMarkerClick, selectedBusiness }: MapViewPro
             if (results.length > 0) {
               const avgLat = results.reduce((sum, b) => sum + b.lat, 0) / results.length;
               const avgLng = results.reduce((sum, b) => sum + b.lng, 0) / results.length;
-              setMapCenter({ lat: avgLat, lng: avgLng });
-              setZoom(12);
+              onCenterChange({ lat: avgLat, lng: avgLng });
+              onZoomChange(12);
             }
           }}
         >

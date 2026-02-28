@@ -38,6 +38,8 @@ export default function Dashboard() {
   const [searchResults, setSearchResults] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [mapCenter, setMapCenter] = useState({ lat: 40.7128, lng: -74.0060 }); // Default NYC
+  const [zoom, setZoom] = useState(12);
   const { toast } = useToast();
 
   const handleSignIn = async () => {
@@ -77,65 +79,67 @@ export default function Dashboard() {
     setTimeout(() => {
       const seed = Date.now();
       
-      // Parse query for location (e.g. "Plumbers in Utah")
       let searchTerm = fullQuery;
-      let location = "New York, NY"; // Default fallback
+      let locationName = "";
       
       const inMatch = fullQuery.toLowerCase().split(/\s+in\s+/);
       const nearMatch = fullQuery.toLowerCase().split(/\s+near\s+/);
       
+      let baseLat = mapCenter.lat;
+      let baseLng = mapCenter.lng;
+      let shouldMoveMap = false;
+
       if (inMatch.length > 1) {
         searchTerm = inMatch[0].trim();
-        location = inMatch[1].trim();
+        locationName = inMatch[1].trim();
+        shouldMoveMap = true;
       } else if (nearMatch.length > 1) {
         searchTerm = nearMatch[0].trim();
-        location = nearMatch[1].trim();
+        locationName = nearMatch[1].trim();
+        shouldMoveMap = true;
       }
 
-      // Basic Geocoding simulation based on location string
-      let baseLat = 40.7128; // Default NYC
-      let baseLng = -74.0060;
-
-      const locLower = location.toLowerCase();
-      if (locLower.includes("utah") || locLower.includes("salt lake") || locLower.includes("slc")) {
-        baseLat = 40.7608;
-        baseLng = -111.8910;
-      } else if (locLower.includes("california") || locLower.includes("los angeles") || locLower.includes("la")) {
-        baseLat = 34.0522;
-        baseLng = -118.2437;
-      } else if (locLower.includes("texas") || locLower.includes("austin")) {
-        baseLat = 30.2672;
-        baseLng = -97.7431;
-      } else if (locLower.includes("florida") || locLower.includes("miami")) {
-        baseLat = 25.7617;
-        baseLng = -80.1918;
-      } else if (location.length > 0 && !locLower.includes("new york")) {
-        // Randomize slightly for unknown locations so it doesn't always show NYC
-        baseLat = 35 + Math.random() * 10;
-        baseLng = -100 + Math.random() * 20;
+      // Geocoding simulation for specified locations
+      if (shouldMoveMap && locationName) {
+        const locLower = locationName.toLowerCase();
+        if (locLower.includes("utah") || locLower.includes("salt lake") || locLower.includes("slc")) {
+          baseLat = 40.7608; baseLng = -111.8910;
+        } else if (locLower.includes("california") || locLower.includes("los angeles") || locLower.includes("la")) {
+          baseLat = 34.0522; baseLng = -118.2437;
+        } else if (locLower.includes("nevada") || locLower.includes("las vegas")) {
+          baseLat = 36.1716; baseLng = -115.1391;
+        } else if (locLower.includes("texas") || locLower.includes("austin")) {
+          baseLat = 30.2672; baseLng = -97.7431;
+        } else {
+          // Randomize slightly for unknown locations so it doesn't always show NYC
+          baseLat = 35 + Math.random() * 5;
+          baseLng = -100 + Math.random() * 10;
+        }
+        setMapCenter({ lat: baseLat, lng: baseLng });
+        setZoom(12);
       }
       
       const mockResults: Business[] = Array.from({ length: 8 }).map((_, i) => ({
         id: `b-${seed}-${i}`,
-        name: i === 0 ? `${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} Pro ${location.charAt(0).toUpperCase() + location.slice(1)}` : `${['Elite', 'Premium', 'Star', 'Global', 'Local'][i % 5]} ${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} ${i + 1}`,
+        name: `${['Elite', 'Premium', 'Star', 'Global', 'Local', 'Pro', 'Apex', 'Direct'][i % 8]} ${searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1)} ${i + 1}`,
         category: searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1) || "Business",
-        address: `${100 + i * 25} Main St, ${location}`,
+        address: `${100 + i * 25} Main St, ${locationName || 'Local Area'}`,
         phone: `(555) ${100 + i}-${2000 + i}`,
         email: `contact@${searchTerm.toLowerCase().replace(/\s/g, '')}${i}@example.com`,
         website: `https://www.${searchTerm.toLowerCase().replace(/\s/g, '')}${i}.com`,
         rating: 4.0 + Math.random(),
         reviews: 20 + Math.floor(Math.random() * 200),
-        lat: baseLat + (Math.random() - 0.5) * 0.05,
-        lng: baseLng + (Math.random() - 0.5) * 0.05,
+        lat: baseLat + (Math.random() - 0.5) * 0.08, // Wider spread
+        lng: baseLng + (Math.random() - 0.5) * 0.08,
       }));
 
       setSearchResults(mockResults);
       setIsSearching(false);
       toast({
         title: "Search Complete",
-        description: `Found ${mockResults.length} leads for "${searchTerm}" in ${location}.`,
+        description: `Found ${mockResults.length} leads for "${searchTerm}" in this area.`,
       });
-    }, 1000);
+    }, 800);
   };
 
   if (userLoading) {
@@ -187,6 +191,10 @@ export default function Dashboard() {
                     results={searchResults} 
                     onMarkerClick={(b) => setSelectedBusiness(b)} 
                     selectedBusiness={selectedBusiness}
+                    center={mapCenter}
+                    zoom={zoom}
+                    onCenterChange={(c) => setMapCenter(c)}
+                    onZoomChange={(z) => setZoom(z)}
                   />
                 </div>
 
