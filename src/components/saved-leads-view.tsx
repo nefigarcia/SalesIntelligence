@@ -13,13 +13,14 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Phone, Globe, Trash2, ExternalLink, Search, Mail, Building2, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
+import { MapPin, Phone, Trash2, Mail, Building2, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { enrichLead } from "@/ai/flows/enrich-lead-flow";
 
 interface SavedLeadsViewProps {
   listId: string | null;
@@ -63,33 +64,60 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
       });
   };
 
-  const handleUpdateStatus = async (leadId: string, newStatus: string) => {
+  const handleUpdateStatus = async (leadId: string, updates: any) => {
     if (!db || !user) return;
     const activeListId = listId || "general";
     const leadRef = doc(db, "users", user.uid, "leadLists", activeListId, "leads", leadId);
     
-    updateDoc(leadRef, { status: newStatus }).catch(async () => {
+    updateDoc(leadRef, { ...updates, updatedAt: serverTimestamp() }).catch(async () => {
       const permissionError = new FirestorePermissionError({
         path: leadRef.path,
         operation: 'update',
+        requestResourceData: updates,
       });
       errorEmitter.emit('permission-error', permissionError);
     });
   };
 
-  // Simulation of the "Data Engineering" Enrichment blocker #1
-  const simulateEnrichment = (leadId: string) => {
-    setEnrichingId(leadId);
-    handleUpdateStatus(leadId, "enriching");
-    
-    setTimeout(() => {
-      handleUpdateStatus(leadId, "ready");
-      setEnrichingId(null);
+  const handleEnrichLead = async (lead: any) => {
+    if (!lead.website) {
+      toast({ variant: "destructive", title: "Missing Website", description: "This lead has no website to scrape." });
+      return;
+    }
+
+    setEnrichingId(lead.id);
+    handleUpdateStatus(lead.id, { status: "enriching" });
+
+    try {
+      const result = await enrichLead({ websiteUrl: lead.website });
+      
+      if (result.found && result.email) {
+        handleUpdateStatus(lead.id, { 
+          status: "ready", 
+          email: result.email 
+        });
+        toast({
+          title: "Email Found!",
+          description: `Discovered contact: ${result.email}`,
+        });
+      } else {
+        handleUpdateStatus(lead.id, { status: "ready" });
+        toast({
+          variant: "destructive",
+          title: "Enrichment Failed",
+          description: result.error || "Could not find an email on this website.",
+        });
+      }
+    } catch (err: any) {
+      handleUpdateStatus(lead.id, { status: "new" });
       toast({
-        title: "Enrichment Complete",
-        description: "Found valid contact info via website scrape.",
+        variant: "destructive",
+        title: "Automation Error",
+        description: "The AI agent failed to reach the website.",
       });
-    }, 2000);
+    } finally {
+      setEnrichingId(null);
+    }
   };
 
   if (loading) {
@@ -183,14 +211,20 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                     >
                       {lead.status || "new"}
                     </Badge>
-                    {lead.status === "new" && (
+                    {(lead.status === "new" || !lead.email) && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 text-[10px] font-bold text-primary hover:bg-primary/10 p-0 flex items-center gap-1 justify-start"
-                        onClick={() => simulateEnrichment(lead.id)}
+                        className="h-7 text-[10px] font-bold text-primary hover:bg-primary/10 p-0 flex items-center gap-1 justify-start disabled:opacity-50"
+                        onClick={() => handleEnrichLead(lead)}
+                        disabled={enrichingId === lead.id}
                       >
-                        <Sparkles className="h-3 w-3" /> Find Email
+                        {enrichingId === lead.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        {enrichingId === lead.id ? "Scraping..." : "Find Email"}
                       </Button>
                     )}
                   </div>
@@ -218,7 +252,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                         "h-8 text-xs font-bold rounded-lg",
                         lead.status === "contacted" ? "border-green-200 text-green-700" : ""
                       )}
-                      onClick={() => handleUpdateStatus(lead.id, lead.status === "contacted" ? "ready" : "contacted")}
+                      onClick={() => handleUpdateStatus(lead.id, { status: lead.status === "contacted" ? "ready" : "contacted" })}
                     >
                       {lead.status === "contacted" ? <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
                       {lead.status === "contacted" ? "Emailed" : "Mark Sent"}
