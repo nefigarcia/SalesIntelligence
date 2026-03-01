@@ -151,17 +151,21 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
       }
 
       // DATA TRANSFORMATION: Map Firestore schema to Google Sheet headers
+      // Added intelligence fields to match user's updated doPost script
       const payload = unsyncedDocs.map(doc => {
         const d = doc.data();
         return {
           "Company Name": d.name,
           "Industry": d.category,
           "Estimated Size": "Small", 
-          "Potential AI Need": "N/A",  
+          "Potential AI Need": d.intentSignals?.join(", ") || "N/A",  
           "Email/Contact Info": d.email || d.phoneNumber || "No contact info",
           "Website": d.website || "N/A",
           "Location": d.address,
-          "Status": d.status || "new"
+          "Status": d.status || "new",
+          "Tech Stack": d.techStack?.join(", ") || "Generic HTML",
+          "Lead Score": d.score || 0,
+          "Social Links": Object.values(d.socialLinks || {}).filter(Boolean).join(", ") || "None"
         };
       });
 
@@ -185,7 +189,7 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
 
       toast({
         title: "Sync Success",
-        description: `Successfully pushed ${payload.length} new leads to your Google Sheet.`,
+        description: `Successfully pushed ${payload.length} intelligence profiles to your Google Sheet.`,
       });
     } catch (err) {
       toast({ variant: "destructive", title: "Sync Failed", description: "Network error or invalid Apps Script URL." });
@@ -202,10 +206,10 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
       const activeListId = selectedListId || "general";
       const snapshot = await getDocs(collection(db, "users", user.uid, "leadLists", activeListId, "leads"));
       
-      const headers = ["Company Name", "Industry", "Email", "Phone", "Website", "Location", "Status"];
+      const headers = ["Company Name", "Industry", "Email", "Phone", "Website", "Location", "Status", "Score", "Tech"];
       const rows = snapshot.docs.map(doc => {
         const d = doc.data();
-        return [`"${d.name}"`, `"${d.category}"`, `"${d.email}"`, `"${d.phoneNumber}"`, `"${d.website}"`, `"${d.address}"`, `"${d.status}"`].join(",");
+        return [`"${d.name}"`, `"${d.category}"`, `"${d.email}"`, `"${d.phoneNumber}"`, `"${d.website}"`, `"${d.address}"`, `"${d.status}"`, `"${d.score}"`, `"${d.techStack?.join('|')}"`].join(",");
       });
 
       const blob = new Blob([[headers.join(","), ...rows].join("\n")], { type: 'text/csv' });
