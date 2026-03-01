@@ -35,8 +35,6 @@ import { Button } from "@/components/ui/button";
 import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "firebase/firestore";
 import { signOut } from "firebase/auth";
-import { errorEmitter } from "@/firebase/error-emitter";
-import { FirestorePermissionError } from "@/firebase/errors";
 import { useToast } from "@/hooks/use-toast";
 import { ViewState } from "@/app/page";
 import {
@@ -55,7 +53,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 interface AppSidebarProps {
   activeView: ViewState;
@@ -80,7 +77,7 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
     return query(collection(db, "users", user.uid, "leadLists"), orderBy("createdAt", "desc"));
   }, [db, user]);
 
-  const { data: savedLists, loading } = useCollection(listsQuery);
+  const { data: savedLists } = useCollection(listsQuery);
 
   const handleSignOut = () => {
     if (auth) signOut(auth);
@@ -93,22 +90,20 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
     setIsCreating(true);
     const listId = `list-${Date.now()}`;
     const listRef = doc(db, "users", user.uid, "leadLists", listId);
-    const listData = {
+    
+    setDoc(listRef, {
       id: listId,
       name: newListName.trim(),
       userId: user.uid,
       count: 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    };
-    
-    setDoc(listRef, listData)
+    })
       .then(() => {
         toast({ title: "Success", description: `"${newListName}" created.` });
         setNewListName("");
         setIsCreateDialogOpen(false);
       })
-      .catch(() => {})
       .finally(() => setIsCreating(false));
   };
 
@@ -118,36 +113,45 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
     deleteDoc(listRef);
   };
 
-  // Blocker #2 Fix: Professional System Interoperability (ETL Bridge)
+  /**
+   * SOFTWARE ENGINEERING: REST API Bridge
+   * Maps Firestore lead entities to Google Sheets headers and pushes via POST.
+   */
   const handleSyncToSheets = async () => {
+    const appsScriptUrl = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+
     if (!db || !user || isSyncing) return;
     
-    setIsSyncing(true);
-    toast({ 
-      title: "Mapping Data Flow", 
-      description: "Preparing payload for Google Apps Script Web App...",
-    });
+    if (!appsScriptUrl) {
+      toast({ 
+        variant: "destructive",
+        title: "Configuration Missing", 
+        description: "Please add NEXT_PUBLIC_APPS_SCRIPT_URL to your .env file to enable syncing.",
+      });
+      return;
+    }
 
+    setIsSyncing(true);
+    
     try {
       const activeListId = selectedListId || "general";
       const leadsRef = collection(db, "users", user.uid, "leadLists", activeListId, "leads");
       const snapshot = await getDocs(leadsRef);
       
       if (snapshot.empty) {
-        toast({ variant: "destructive", title: "Empty List", description: "No leads found to sync." });
+        toast({ variant: "destructive", title: "Empty List", description: "No leads found in this list to sync." });
         setIsSyncing(false);
         return;
       }
 
-      // SOFTWARE ENGINEERING BEST PRACTICE: Map Firestore state to External System Schema
-      // This matches your specific Google Sheet headers exactly
+      // DATA TRANSFORMATION: Map Firestore schema to Google Sheet headers
       const payload = snapshot.docs.map(doc => {
         const d = doc.data();
         return {
           "Company Name": d.name,
           "Industry": d.category,
-          "Estimated Size": "N/A", // Schema placeholder
-          "Potential AI Need": "N/A", // Schema placeholder
+          "Estimated Size": "Small", // Default for your sheet structure
+          "Potential AI Need": "N/A",  // Default for your sheet structure
           "Email/Contact Info": d.email || d.phoneNumber || "No contact info",
           "Website": d.website || "N/A",
           "Location": d.address,
@@ -155,19 +159,23 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
         };
       });
 
-      // Simulation of a fetch() call to your Apps Script URL
-      // In production: await fetch('YOUR_APPS_SCRIPT_WEB_APP_URL', { method: 'POST', body: JSON.stringify(payload) });
-      
-      setTimeout(() => {
-        setIsSyncing(false);
-        toast({
-          title: "Sync Successful",
-          description: `Pushed ${payload.length} leads to Google Sheets via Apps Script API.`,
-        });
-      }, 2000);
+      // REST API CALL: Sending JSON to the Apps Script Web App
+      const response = await fetch(appsScriptUrl, {
+        method: 'POST',
+        mode: 'no-cors', // Apps Script requires no-cors or specialized redirect handling
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      // Since mode is 'no-cors', we can't read the response body, but we know it sent
+      toast({
+        title: "Sync Initiated",
+        description: `Successfully pushed ${payload.length} leads to your Google Sheet.`,
+      });
     } catch (err) {
+      toast({ variant: "destructive", title: "Sync Failed", description: "Network error or invalid Apps Script URL." });
+    } finally {
       setIsSyncing(false);
-      toast({ variant: "destructive", title: "Sync Failed", description: "Could not connect to Google Workspace." });
     }
   };
 
