@@ -101,6 +101,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
           description: `Scraped: ${result.email}`,
         });
       } else {
+        // Mark as ready but without email, so we can show 'Email not found'
         handleUpdateStatus(lead.id, { status: "ready" });
         toast({
           variant: "destructive",
@@ -138,7 +139,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
           <Building2 className="h-12 w-12 text-slate-200" />
         </div>
         <h2 className="text-3xl font-extrabold mb-3 text-slate-900">Pipeline Empty</h2>
-        <p className="text-muted-foreground max-w-sm text-lg font-medium">
+        <p className="text-muted-foreground max-sm text-lg font-medium">
           Save leads from the Search tab to begin your outreach process.
         </p>
       </div>
@@ -196,28 +197,13 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                       className={cn(
                         "font-black uppercase tracking-widest text-[9px] px-2 py-0.5 w-fit border-none",
                         lead.status === "contacted" ? "bg-green-600 text-white" : 
+                        lead.status === "synced" ? "bg-green-500 text-white" :
                         lead.status === "ready" ? "bg-indigo-600 text-white" :
                         "bg-slate-200 text-slate-600"
                       )}
                     >
                       {lead.status || "new"}
                     </Badge>
-                    {(!lead.email && lead.status !== "enriching") && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 text-[10px] font-bold text-primary p-0 flex items-center gap-1 justify-start hover:bg-transparent"
-                        onClick={() => handleEnrichLead(lead)}
-                        disabled={enrichingId === lead.id}
-                      >
-                        <Sparkles className="h-3 w-3" /> Find Email
-                      </Button>
-                    )}
-                    {enrichingId === lead.id && (
-                      <span className="text-[10px] font-bold text-blue-600 animate-pulse flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Scraping Web...
-                      </span>
-                    )}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -243,15 +229,39 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                         <Globe className="h-3.5 w-3.5" /> No website
                       </div>
                     )}
-                    {lead.email ? (
-                      <div className="flex items-center gap-2 text-xs text-indigo-700 font-bold">
-                        <Mail className="h-3.5 w-3.5" /> {lead.email}
-                      </div>
-                    ) : (
-                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
-                        Email not found
-                      </div>
-                    )}
+                    
+                    {/* Find Email / Email Result Logic */}
+                    <div className="mt-1">
+                      {lead.email ? (
+                        <div className="flex items-center gap-2 text-xs text-indigo-700 font-bold">
+                          <Mail className="h-3.5 w-3.5" /> {lead.email}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {enrichingId === lead.id ? (
+                            <span className="text-[10px] font-bold text-blue-600 animate-pulse flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" /> Scraping...
+                            </span>
+                          ) : (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 text-[10px] font-bold text-primary p-0 flex items-center gap-1 justify-start hover:bg-transparent"
+                                onClick={() => handleEnrichLead(lead)}
+                              >
+                                <Sparkles className="h-3 w-3" /> Find Email
+                              </Button>
+                              {lead.status === 'ready' && !lead.email && (
+                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                  Email not found
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell>

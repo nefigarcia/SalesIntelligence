@@ -31,7 +31,7 @@
         "reviews": { "type": "number" },
         "status": { 
           "type": "string", 
-          "enum": ["new", "enriching", "ready", "contacted", "replied"],
+          "enum": ["new", "enriching", "ready", "synced", "contacted", "replied"],
           "description": "The current stage in the lead generation pipeline."
         },
         "savedAt": { "type": "string", "format": "date-time" }

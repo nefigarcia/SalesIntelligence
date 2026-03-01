@@ -33,7 +33,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs } from "firebase/firestore";
+import { collection, doc, setDoc, deleteDoc, serverTimestamp, query, orderBy, getDocs, writeBatch } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { ViewState } from "@/app/page";
@@ -114,8 +114,8 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
   };
 
   /**
-   * SOFTWARE ENGINEERING: REST API Bridge
-   * Maps Firestore lead entities to Google Sheets headers and pushes via POST.
+   * SOFTWARE ENGINEERING: REST API Bridge with Delta Sync
+   * Only sends leads that have NOT been synced yet.
    */
   const handleSyncToSheets = async () => {
     const appsScriptUrl = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
@@ -138,20 +138,26 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
       const leadsRef = collection(db, "users", user.uid, "leadLists", activeListId, "leads");
       const snapshot = await getDocs(leadsRef);
       
-      if (snapshot.empty) {
-        toast({ variant: "destructive", title: "Empty List", description: "No leads found in this list to sync." });
+      // DELTA SYNC: Filter for leads that are not 'synced'
+      const unsyncedDocs = snapshot.docs.filter(doc => doc.data().status !== 'synced');
+
+      if (unsyncedDocs.length === 0) {
+        toast({ 
+          title: "Nothing to Sync", 
+          description: "All leads in this list have already been synced to Google Sheets.",
+        });
         setIsSyncing(false);
         return;
       }
 
       // DATA TRANSFORMATION: Map Firestore schema to Google Sheet headers
-      const payload = snapshot.docs.map(doc => {
+      const payload = unsyncedDocs.map(doc => {
         const d = doc.data();
         return {
           "Company Name": d.name,
           "Industry": d.category,
-          "Estimated Size": "Small", // Default for your sheet structure
-          "Potential AI Need": "N/A",  // Default for your sheet structure
+          "Estimated Size": "Small", 
+          "Potential AI Need": "N/A",  
           "Email/Contact Info": d.email || d.phoneNumber || "No contact info",
           "Website": d.website || "N/A",
           "Location": d.address,
@@ -159,18 +165,27 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
         };
       });
 
-      // REST API CALL: Sending JSON to the Apps Script Web App
-      const response = await fetch(appsScriptUrl, {
+      // REST API CALL
+      await fetch(appsScriptUrl, {
         method: 'POST',
-        mode: 'no-cors', // Apps Script requires no-cors or specialized redirect handling
+        mode: 'no-cors', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      // Since mode is 'no-cors', we can't read the response body, but we know it sent
+      // UPDATE STATUS: Mark successfully sent leads as 'synced'
+      const batch = writeBatch(db);
+      unsyncedDocs.forEach(dDoc => {
+        batch.update(dDoc.ref, { 
+          status: 'synced',
+          updatedAt: serverTimestamp()
+        });
+      });
+      await batch.commit();
+
       toast({
-        title: "Sync Initiated",
-        description: `Successfully pushed ${payload.length} leads to your Google Sheet.`,
+        title: "Sync Success",
+        description: `Successfully pushed ${payload.length} new leads to your Google Sheet.`,
       });
     } catch (err) {
       toast({ variant: "destructive", title: "Sync Failed", description: "Network error or invalid Apps Script URL." });
