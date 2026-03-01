@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Trash2, Mail, Building2, CheckCircle2, Sparkles, Loader2, Globe } from "lucide-react";
+import { MapPin, Phone, Trash2, Mail, Building2, CheckCircle2, Sparkles, Loader2, Globe, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorEmitter } from "@/firebase/error-emitter";
@@ -89,7 +89,6 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     handleUpdateStatus(lead.id, { status: "enriching" });
 
     try {
-      // Use the Rule-Based Scraping utility (ETL Blocker #1 fix)
       const result = await scrapeEmailFromWebsite(lead.website);
       
       if (result.found && result.email) {
@@ -179,7 +178,6 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                 key={lead.id} 
                 className={cn(
                   "transition-all border-b border-slate-50",
-                  // Blocker #3 Fix: Prominent row coloring for status
                   lead.status === "contacted" ? "bg-green-100 hover:bg-green-200" : 
                   lead.status === "enriching" ? "bg-blue-50/50" : "hover:bg-slate-50"
                 )}
@@ -223,17 +221,35 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                      <Phone className="h-3.5 w-3.5 text-primary/40" /> {lead.phoneNumber || "N/A"}
+                      <Phone className="h-3.5 w-3.5 text-primary/40" /> {lead.phoneNumber || "No phone"}
                     </div>
+                    {lead.website ? (
+                      <a 
+                        href={lead.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-[11px] text-primary font-bold hover:underline"
+                      >
+                        <Globe className="h-3.5 w-3.5" /> 
+                        <span className="truncate max-w-[150px]">
+                          {lead.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                        </span>
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 italic">
+                        <Globe className="h-3.5 w-3.5" /> No website
+                      </div>
+                    )}
                     {lead.email ? (
                       <div className="flex items-center gap-2 text-xs text-indigo-700 font-bold">
                         <Mail className="h-3.5 w-3.5" /> {lead.email}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 text-xs text-slate-400 italic">
-                        <Globe className="h-3.5 w-3.5" /> Site crawl required
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                        Email not found
                       </div>
                     )}
                   </div>
