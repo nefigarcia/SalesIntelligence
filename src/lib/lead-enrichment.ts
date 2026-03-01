@@ -3,7 +3,7 @@
 
 /**
  * @fileOverview Sales Intelligence Enrichment Service.
- * Performs multi-stage data extraction: Email, Social Links, Tech Stack, and Propensity Scoring.
+ * Performs multi-stage data extraction: Email, Social Links, Technographics, and Intent Scoring.
  */
 
 export interface LeadEnrichmentResult {
@@ -36,13 +36,13 @@ export async function enrichLeadAction(websiteUrl: string, businessName: string)
     const html = await response.text();
     const htmlLower = html.toLowerCase();
 
-    // 1. Email Discovery (Regex)
+    // 1. Email Discovery (Refined Regex)
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
     const emailMatches = html.match(emailRegex);
-    const junkKeywords = ['sentry.io', 'google.com', 'example.com', 'png', 'jpg', 'svg', 'wix', 'wordpress', 'github'];
+    const junkKeywords = ['sentry.io', 'google.com', 'example.com', 'png', 'jpg', 'svg', 'wix', 'wordpress', 'github', 'bootstrap', 'npm'];
     const email = emailMatches ? Array.from(new Set(emailMatches)).find(e => !junkKeywords.some(j => e.toLowerCase().includes(j))) : undefined;
 
-    // 2. Technographic Detection (Fingerprinting)
+    // 2. Technographic Detection (Advanced Fingerprinting)
     const techStack: string[] = [];
     if (htmlLower.includes('wp-content')) techStack.push('WordPress');
     if (htmlLower.includes('shopify')) techStack.push('Shopify');
@@ -51,8 +51,10 @@ export async function enrichLeadAction(websiteUrl: string, businessName: string)
     if (htmlLower.includes('googletagmanager')) techStack.push('GTM');
     if (htmlLower.includes('facebook-jssdk')) techStack.push('FB Pixel');
     if (htmlLower.includes('hubspot')) techStack.push('HubSpot');
+    if (htmlLower.includes('mailchimp')) techStack.push('Mailchimp');
+    if (htmlLower.includes('intercom')) techStack.push('Intercom');
 
-    // 3. Social Discovery (Regex for major platforms)
+    // 3. Social Discovery
     const socialLinks: any = {};
     const fbMatch = html.match(/facebook\.com\/([a-zA-Z0-9.]+)/);
     const igMatch = html.match(/instagram\.com\/([a-zA-Z0-9.]+)/);
@@ -65,17 +67,27 @@ export async function enrichLeadAction(websiteUrl: string, businessName: string)
     if (twMatch) socialLinks.twitter = `https://twitter.com/${twMatch[1]}`;
 
     // 4. Propensity Scoring & Intent Signals
-    let score = 20; // Baseline
+    let score = 25; // Base score
     const signals: string[] = [];
 
-    if (email) score += 30;
+    if (email) score += 25;
     if (Object.keys(socialLinks).length > 0) score += 20;
+    
+    // High-Tech Maturity
     if (techStack.length > 3) {
       score += 15;
       signals.push('High tech maturity');
     }
+
+    // Growth Signals
+    if (htmlLower.includes('careers') || htmlLower.includes('jobs') || htmlLower.includes('we are hiring')) {
+      score += 15;
+      signals.push('Growth potential');
+    }
+
+    // Opportunity Signals
     if (techStack.includes('Shopify')) signals.push('E-commerce potential');
-    if (!techStack.includes('GTM')) signals.push('Needs tracking setup');
+    if (!techStack.includes('googletagmanager')) signals.push('Tracking gap');
 
     return {
       email,
