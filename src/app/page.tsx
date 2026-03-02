@@ -260,7 +260,7 @@ export default function Dashboard() {
   const { user, isUserLoading: userLoading } = useUser();
   const auth = useAuth();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-  const isMobile = useIsMobile();
+  //const isMobile = useIsMobile();
 
   const handleSignIn = async () => {
     if (!auth) return;
@@ -268,12 +268,12 @@ export default function Dashboard() {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       // Use redirect on mobile devices to avoid popup issues on mobile browsers.
-      if (isMobile) {
+      /*if (isMobile) {
         // signInWithRedirect will navigate away and return via Firebase auth state listener
         await signInWithRedirect(auth, provider);
-      } else {
+      } else {*/
         await signInWithPopup(auth, provider);
-      }
+    //  }
     } catch (error: any) {
       console.error("Auth Error:", error);
     }
