@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SearchHeader } from "@/components/search-header";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { MapView } from "@/components/map-view";
 import { BusinessList } from "@/components/business-list";
 import { BusinessDetail } from "@/components/business-detail";
@@ -13,7 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { LogIn, Search as SearchIcon, RefreshCcw, Compass } from "lucide-react";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from "firebase/auth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { APIProvider, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 
@@ -179,11 +181,17 @@ function DashboardContent() {
         />
         <SidebarInset className="flex flex-col h-screen">
           <header className="flex h-20 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
-            <SearchHeader 
-              onSearch={handleSearch} 
-              isLoading={isSearching} 
-              initialValue={searchParams.get("q") || ""} 
-            />
+            <div className="flex items-center gap-3 mr-3">
+              {/* Mobile sidebar trigger */}
+              <SidebarTrigger className="md:hidden" />
+            </div>
+            <div className="flex-1">
+              <SearchHeader 
+                onSearch={handleSearch} 
+                isLoading={isSearching} 
+                initialValue={searchParams.get("q") || ""} 
+              />
+            </div>
           </header>
           
           <main className="flex-1 flex flex-row overflow-hidden relative">
@@ -249,16 +257,23 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
-  const { user, loading: userLoading } = useUser();
+  const { user, isUserLoading: userLoading } = useUser();
   const auth = useAuth();
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const isMobile = useIsMobile();
 
   const handleSignIn = async () => {
     if (!auth) return;
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await signInWithPopup(auth, provider);
+      // Use redirect on mobile devices to avoid popup issues on mobile browsers.
+      if (isMobile) {
+        // signInWithRedirect will navigate away and return via Firebase auth state listener
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+      }
     } catch (error: any) {
       console.error("Auth Error:", error);
     }

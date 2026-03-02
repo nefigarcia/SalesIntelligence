@@ -56,7 +56,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     return query(collection(db, path), orderBy("savedAt", "desc"));
   }, [db, user, listId]);
 
-  const { data: leads, loading } = useCollection(leadsQuery);
+  const { data: leads, isLoading } = useCollection(leadsQuery);
 
   const handleDeleteLead = async (leadId: string) => {
     if (!db || !user) return;
@@ -136,7 +136,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-8 space-y-4 w-full bg-white h-full">
         <Skeleton className="h-10 w-64 mb-10 rounded-xl" />

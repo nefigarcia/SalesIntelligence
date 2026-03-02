@@ -53,11 +53,24 @@ interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {}
 
+// Small helper to log diagnostic info without returning a ReactNode directly from console
+const DiagnosticLog = ({ obj, msg }: { obj: any; msg: string }) => {
+  React.useEffect(() => {
+    console.error(msg, obj);
+  }, [obj, msg]);
+  return null;
+};
+
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
 >(({ side = "right", className, children, ...props }, ref) => (
   <SheetPortal>
+    {/* Diagnostic guard: if Radix's Content primitive is missing at runtime we log details
+        instead of letting the app crash. This helps capture Sentry/console info for debugging. */}
+    {typeof SheetPrimitive.Content === "undefined" && (
+      <DiagnosticLog msg={'Radix Dialog primitive "Content" is undefined. SheetPrimitive exports:'} obj={SheetPrimitive} />
+    )}
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}

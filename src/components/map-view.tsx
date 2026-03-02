@@ -68,7 +68,7 @@ export function MapView({
         <Button 
           variant="default" 
           size="icon" 
-          className="h-10 w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border border-slate-200"
+          className="h-12 w-12 md:h-10 md:w-10 rounded-lg shadow-xl bg-white text-foreground hover:bg-slate-50 border border-slate-200"
           onClick={() => {
             if (results.length > 0) {
               const avgLat = results.reduce((sum, b) => sum + b.lat, 0) / results.length;
