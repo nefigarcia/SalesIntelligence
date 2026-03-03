@@ -8,6 +8,7 @@ import { SearchHeader } from "@/components/search-header";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { MapView } from "@/components/map-view";
 import { BusinessList } from "@/components/business-list";
+import BottomSheet from "@/components/bottom-sheet";
 import { BusinessDetail } from "@/components/business-detail";
 import { SavedLeadsView } from "@/components/saved-leads-view";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +28,8 @@ export type Business = {
   phone: string;
   email?: string;
   website?: string;
-  rating: number;
-  reviews: number;
+  rating: number | null ;
+  reviews: number | null ;
   lat: number;
   lng: number;
 };
@@ -41,7 +42,7 @@ function DashboardContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  
+  const isMobile = useIsMobile();
   const map = useMap();
   const placesLibrary = useMapsLibrary("places");
 
@@ -98,18 +99,32 @@ function DashboardContent() {
 
     service.textSearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        const businesses: Business[] = results.map((place) => ({
-          id: place.place_id || Math.random().toString(),
-          name: place.name || "Unknown Business",
-          category: place.types?.[0]?.replace(/_/g, " ") || "Business",
-          address: place.formatted_address || "No address available",
-          phone: "Loading phone...", 
-          rating: place.rating || 0,
-          reviews: place.user_ratings_total || 0,
-          lat: place.geometry?.location?.lat() || 0,
-          lng: place.geometry?.location?.lng() || 0,
-          website: "",
-        }));
+        const businesses: Business[] = results
+  .filter((place) => place.place_id)
+  .map((place) => {console.log("Render:", place.name, place.rating);
+    const rating =
+      typeof place.rating === "number"
+        ? Number(place.rating.toFixed(1))
+        : null;
+
+    const reviews =
+      typeof place.user_ratings_total === "number"
+        ? place.user_ratings_total
+        : null;
+
+    return Object.freeze({
+      id: place.place_id!,
+      name: place.name ?? "Unknown Business",
+      category: place.types?.[0]?.replace(/_/g, " ") ?? "Business",
+      address: place.formatted_address ?? "No address available",
+      phone: "Loading phone...",
+      rating,
+      reviews,
+      lat: place.geometry?.location?.lat() ?? 0,
+      lng: place.geometry?.location?.lng() ?? 0,
+      website: "",
+    });
+  });
 
         setSearchResults(businesses);
         
@@ -155,7 +170,50 @@ function DashboardContent() {
           description: "Could not retrieve real business data at this time.",
         });
       }
-      setIsSearching(false);
+      // Only run the follow-up detail fetch when results is available; always stop the loading state.
+      if (results) {
+        Promise.all(
+  results
+    .filter(p => p.place_id)
+    .map((place, index) =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          service.getDetails(
+            {
+              placeId: place.place_id!,
+              fields: ["formatted_phone_number", "website"],
+            },
+            (detail, detailStatus) => {
+              if (
+                detailStatus === google.maps.places.PlacesServiceStatus.OK &&
+                detail
+              ) {
+                setSearchResults((prev) =>
+                  prev.map((b) =>
+                    b.id === place.place_id
+                      ? {
+                          ...b,
+                          phone:
+                            detail.formatted_phone_number ||
+                            "No phone listed",
+                          website: detail.website || "",
+                        }
+                      : b
+                  )
+                );
+              }
+              resolve();
+            }
+          );
+        }, index * 150);
+      })
+    )
+).finally(() => {
+  setIsSearching(false);
+});
+      } else {
+        setIsSearching(false);
+      }
     });
   }, [placesLibrary, map, searchParams, router, pathname, toast]);
 
@@ -188,7 +246,7 @@ function DashboardContent() {
             <div className="flex-1">
               <SearchHeader 
                 onSearch={handleSearch} 
-                isLoading={isSearching} 
+                isLoading={isSearching && searchResults.length === 0} 
                 initialValue={searchParams.get("q") || ""} 
               />
             </div>
@@ -227,20 +285,39 @@ function DashboardContent() {
                   )}
                 </div>
 
-                <div className="w-96 border-l bg-white flex flex-col shrink-0 z-10 shadow-lg">
-                  {selectedBusiness ? (
-                    <BusinessDetail 
-                      business={selectedBusiness} 
-                      onClose={() => setSelectedBusiness(null)} 
-                    />
-                  ) : (
-                    <BusinessList 
-                      results={searchResults} 
-                      isLoading={isSearching}
-                      onSelect={(b) => setSelectedBusiness(b)}
-                    />
-                  )}
-                </div>
+                {/* Desktop: right sidebar. Mobile: bottom sheet. */}
+                { /* useIsMobile hook is available at module top */ }
+                { isMobile ? (
+                  <BottomSheet hasResults={searchResults.length > 0}>
+                    {selectedBusiness ? (
+                      <BusinessDetail 
+                        business={selectedBusiness} 
+                        onClose={() => setSelectedBusiness(null)} 
+                      />
+                    ) : (
+                      <BusinessList 
+                        results={searchResults} 
+                        isLoading={isSearching && searchResults.length === 0}
+                        onSelect={(b) => setSelectedBusiness(b)}
+                      />
+                    )}
+                  </BottomSheet>
+                ) : (
+                  <div className="w-full max-w-[408px] border-l bg-white flex flex-col shrink-0 z-10 shadow-lg h-full overflow-hidden">
+                    {selectedBusiness ? (
+                      <BusinessDetail 
+                        business={selectedBusiness} 
+                        onClose={() => setSelectedBusiness(null)} 
+                      />
+                    ) : (
+                      <BusinessList 
+                        results={searchResults} 
+                        isLoading={isSearching && searchResults.length === 0}
+                        onSelect={(b) => setSelectedBusiness(b)}
+                      />
+                    )}
+                  </div>
+                )}
               </>
             ) : activeView === "lists" ? (
               <SavedLeadsView listId={selectedListId} />
