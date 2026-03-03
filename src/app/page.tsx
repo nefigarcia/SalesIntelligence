@@ -135,29 +135,7 @@ function DashboardContent() {
         }
 
         // Deep enrich the results with Details (Phone/Website)
-        results.forEach((place, index) => {
-          if (!place.place_id) return;
-          
-          // Stagger requests slightly to be nice to rate limits
-          setTimeout(() => {
-            service.getDetails({
-              placeId: place.place_id!,
-              fields: ['formatted_phone_number', 'website']
-            }, (detail, detailStatus) => {
-              if (detailStatus === google.maps.places.PlacesServiceStatus.OK && detail) {
-                setSearchResults(prev => prev.map(b => 
-                  b.id === place.place_id 
-                    ? { 
-                        ...b, 
-                        phone: detail.formatted_phone_number || "No phone listed", 
-                        website: detail.website || "" 
-                      } 
-                    : b
-                ));
-              }
-            });
-          }, index * 150);
-        });
+
 
         toast({
           title: "Search Complete",
@@ -172,48 +150,47 @@ function DashboardContent() {
       }
       // Only run the follow-up detail fetch when results is available; always stop the loading state.
       if (results) {
-        Promise.all(
-  results
-    .filter(p => p.place_id)
-    .map((place, index) =>
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          service.getDetails(
-            {
-              placeId: place.place_id!,
-              fields: ["formatted_phone_number", "website"],
-            },
-            (detail, detailStatus) => {
-              if (
-                detailStatus === google.maps.places.PlacesServiceStatus.OK &&
-                detail
-              ) {
-                setSearchResults((prev) =>
-                  prev.map((b) =>
-                    b.id === place.place_id
-                      ? {
-                          ...b,
-                          phone:
-                            detail.formatted_phone_number ||
-                            "No phone listed",
-                          website: detail.website || "",
-                        }
-                      : b
-                  )
+  Promise.all(
+    results
+      .filter(p => p.place_id)
+      .map((place, index) =>
+        new Promise<Business>((resolve) => {
+          setTimeout(() => {
+            service.getDetails(
+              {
+                placeId: place.place_id!,
+                fields: ["formatted_phone_number", "website"],
+              },
+              (detail, detailStatus) => {
+                const base = businesses.find(
+                  b => b.id === place.place_id
                 );
+
+                resolve({
+                  ...base!,
+                  phone:
+                    detailStatus === google.maps.places.PlacesServiceStatus.OK &&
+                    detail?.formatted_phone_number
+                      ? detail.formatted_phone_number
+                      : "No phone listed",
+                  website:
+                    detailStatus === google.maps.places.PlacesServiceStatus.OK &&
+                    detail?.website
+                      ? detail.website
+                      : "",
+                });
               }
-              resolve();
-            }
-          );
-        }, index * 150);
-      })
-    )
-).finally(() => {
+            );
+          }, index * 150);
+        })
+      )
+  ).then((enrichedBusinesses) => {
+    setSearchResults(enrichedBusinesses);
+    setIsSearching(false);
+  });
+} else {
   setIsSearching(false);
-});
-      } else {
-        setIsSearching(false);
-      }
+}
     });
   }, [placesLibrary, map, searchParams, router, pathname, toast]);
 
