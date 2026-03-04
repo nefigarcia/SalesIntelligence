@@ -42,6 +42,14 @@ interface BusinessListProps {
 }
 
 export function BusinessList({ results, isLoading, onSelect }: BusinessListProps) {
+  // Render-time debug: log summary of incoming results to trace lifecycle
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      console.debug('BusinessList render - results', results.map(r => ({ id: r.id, rating: r.rating, phone: r.phone })));
+    } catch (e) {
+      console.debug('BusinessList render - results (unable to map)', e);
+    }
+  }
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
@@ -199,14 +207,13 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
         </div>
       </div>
 
-  <ScrollArea className="flex-1 custom-scrollbar">
-        <div className="p-4 space-y-4 pb-32">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32 w-full">
           {results.map((b) => (
             <div 
               key={b.id} 
               onClick={() => onSelect(b)}
               className={cn(
-                "group border-2 p-5 pr-8 rounded-2xl cursor-pointer transition-all shadow-sm bg-white relative flex gap-4",
+                "group border-2 p-5 pr-8 rounded-2xl cursor-pointer transition-all shadow-sm bg-white relative flex gap-4 overflow-visible",
                 selectedIds.includes(b.id) ? "border-primary/40 bg-primary/[0.03] shadow-md" : "border-slate-50 hover:border-primary/20 hover:bg-slate-50 hover:shadow-md"
               )}
             >
@@ -219,17 +226,21 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
               
               <div className="flex-1 min-w-0">
                 {/* Use grid so title and rating are independent of scrollbar width changes */}
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex justify-between items-start gap-3">
                   <h3 className="font-bold text-lg group-hover:text-primary transition-colors tracking-tight break-words whitespace-normal">
                     {b.name}
                   </h3>
-                  {/* Fixed width rating badge to avoid layout shift when rating updates */}
-                  {b.rating != null &&( 
-                  <div className="w-12 flex items-center gap-1 shrink-0 bg-yellow-50 py-0.5 rounded-lg border border-yellow-100 justify-center">
-                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    <span className="text-[11px] font-bold text-yellow-700 tabular-nums">{b.rating.toFixed(1)}</span>
-                  </div>
-                  )}
+                  {/* The debug badge is absolutely positioned so it will not be pushed
+                      outside the card when the title grows; the card is already
+                      positioned relative which creates a local stacking context. */}
+                   {b.rating != null && (
+    <div className="flex items-center gap-1 shrink-0 bg-yellow-50 py-0.5 px-2 rounded-lg border border-yellow-100">
+      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+      <span className="text-[11px] font-bold text-yellow-700 tabular-nums">
+        {b.rating.toFixed(1)}
+      </span>
+    </div>
+  )}
                 </div>
                 
                 <div className="space-y-2 mb-4">
@@ -275,7 +286,6 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
             </div>
           ))}
         </div>
-      </ScrollArea>
 
       {/* Bulk Action Bar */}
       {isAnySelected && (

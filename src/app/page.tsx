@@ -98,10 +98,15 @@ function DashboardContent() {
     };
 
     service.textSearch(request, (results, status) => {
+      // prepare a businesses array in this outer scope so follow-up
+      // enrichment code can access it without block-scope issues
+      let businesses: Business[] = [];
+
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        const businesses: Business[] = results
-  .filter((place) => place.place_id)
-  .map((place) => {console.log("Render:", place.name, place.rating);
+        businesses = results
+          .filter((place) => place.place_id)
+          .map((place) => {
+            console.log("Render:", place.name, place.rating);
     const rating =
       typeof place.rating === "number"
         ? Number(place.rating.toFixed(1))
@@ -123,10 +128,17 @@ function DashboardContent() {
       lat: place.geometry?.location?.lat() ?? 0,
       lng: place.geometry?.location?.lng() ?? 0,
       website: "",
-    });
+  });
   });
 
         setSearchResults(businesses);
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            console.debug('setSearchResults(initial) ->', businesses.map(b => ({ id: b.id, rating: b.rating, phone: b.phone })));
+          } catch (e) {
+            console.debug('setSearchResults(initial) -> mapping failed', e);
+          }
+        }
         
         if (!useCurrentView && businesses.length > 0) {
           const firstResult = businesses[0];
@@ -135,7 +147,6 @@ function DashboardContent() {
         }
 
         // Deep enrich the results with Details (Phone/Website)
-
 
         toast({
           title: "Search Complete",
@@ -149,12 +160,20 @@ function DashboardContent() {
         });
       }
       // Only run the follow-up detail fetch when results is available; always stop the loading state.
-      if (results) {
-  Promise.all(
-    results
-      .filter(p => p.place_id)
-      .map((place, index) =>
-        new Promise<Business>((resolve) => {
+      if (results && businesses.length > 0) {
+        const placesToProcess = results.filter((p) => p.place_id);
+        let completed = 0;
+
+        // safety fallback in case some getDetails callbacks never fire
+        let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+        const fallbackDelay = placesToProcess.length * 150 + 4000;
+        fallbackTimer = setTimeout(() => {
+          console.warn('getDetails fallback timer fired — marking search complete');
+          setIsSearching(false);
+        }, fallbackDelay);
+
+        placesToProcess.forEach((place, index) => {
+          // Stagger requests slightly to avoid rate limits
           setTimeout(() => {
             service.getDetails(
               {
@@ -162,35 +181,43 @@ function DashboardContent() {
                 fields: ["formatted_phone_number", "website"],
               },
               (detail, detailStatus) => {
-                const base = businesses.find(
-                  b => b.id === place.place_id
+                console.debug('getDetails callback', { placeId: place.place_id, detailStatus });
+                // Update the specific business in-place to preserve rating and other fields.
+                setSearchResults((prev) =>
+                  prev.map((b) =>
+                    b.id === place.place_id
+                      ? {
+                          ...b,
+                          phone:
+                            detailStatus === google.maps.places.PlacesServiceStatus.OK &&
+                            detail?.formatted_phone_number
+                              ? detail.formatted_phone_number
+                              : "No phone listed",
+                          website:
+                            detailStatus === google.maps.places.PlacesServiceStatus.OK &&
+                            detail?.website
+                              ? detail.website
+                              : "",
+                        }
+                      : b
+                  )
                 );
 
-                resolve({
-                  ...base!,
-                  phone:
-                    detailStatus === google.maps.places.PlacesServiceStatus.OK &&
-                    detail?.formatted_phone_number
-                      ? detail.formatted_phone_number
-                      : "No phone listed",
-                  website:
-                    detailStatus === google.maps.places.PlacesServiceStatus.OK &&
-                    detail?.website
-                      ? detail.website
-                      : "",
-                });
+                completed += 1;
+                if (completed >= placesToProcess.length) {
+                  if (fallbackTimer) {
+                    clearTimeout(fallbackTimer);
+                    fallbackTimer = null;
+                  }
+                  setIsSearching(false);
+                }
               }
             );
           }, index * 150);
-        })
-      )
-  ).then((enrichedBusinesses) => {
-    setSearchResults(enrichedBusinesses);
-    setIsSearching(false);
-  });
-} else {
-  setIsSearching(false);
-}
+        });
+      } else {
+        setIsSearching(false);
+      }
     });
   }, [placesLibrary, map, searchParams, router, pathname, toast]);
 
