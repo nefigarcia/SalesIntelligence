@@ -177,139 +177,217 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
         </Badge>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <Table>
-          <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
-            <TableRow className="border-b-2">
-              <TableHead className="w-[280px] font-black uppercase text-[10px] tracking-widest text-slate-400 py-6">Target Profile</TableHead>
-              <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Lead Intelligence</TableHead>
-              <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Tech & Socials</TableHead>
-              <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Status</TableHead>
-              <TableHead className="text-right font-black uppercase text-[10px] tracking-widest text-slate-400 pr-8">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {leads.map((lead: any) => (
-              <TableRow 
-                key={lead.id} 
-                className={cn(
-                  "transition-all border-b border-slate-50",
-                  lead.status === "contacted" ? "bg-green-50/80 hover:bg-green-100" : 
-                  lead.status === "enriching" ? "bg-blue-50/50" : "hover:bg-slate-50"
-                )}
-              >
-                <TableCell className="py-6 pl-8">
-                  <div className="flex flex-col">
-                    <span className="text-base font-black tracking-tight text-slate-900 truncate max-w-[200px]">{lead.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-bold mt-1 flex items-center gap-1 uppercase tracking-tight">
-                      <MapPin className="h-3 w-3" /> {lead.address.split(',')[0]}
-                    </span>
-                    <div className="flex items-center gap-2 mt-2">
-                      {lead.website && (
-                        <a href={lead.website} target="_blank" className="p-1.5 bg-slate-100 rounded-md hover:bg-primary/10 hover:text-primary transition-colors">
-                          <Globe className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                      {lead.phoneNumber && (
-                        <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                          <Phone className="h-3 w-3 text-primary/40" /> {lead.phoneNumber}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                
-                <TableCell>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center border-2",
-                        (lead.score || 0) > 70 ? "border-green-200 bg-green-50 text-green-700" :
-                        (lead.score || 0) > 40 ? "border-yellow-200 bg-yellow-50 text-yellow-700" :
-                        "border-slate-100 bg-slate-50 text-slate-400"
-                      )}>
-                        <span className="text-sm font-black">{lead.score || '--'}</span>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden w-full min-w-0">
+        
+        {/* --- DESKTOP VIEW: Table (Hidden on Mobile) --- */}
+        <div className="hidden md:block min-w-[800px]">
+          <Table>
+            <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
+              <TableRow className="border-b-2">
+                <TableHead className="w-[280px] font-black uppercase text-[10px] tracking-widest text-slate-400 py-6">Target Profile</TableHead>
+                <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Lead Intelligence</TableHead>
+                <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Tech & Socials</TableHead>
+                <TableHead className="font-black uppercase text-[10px] tracking-widest text-slate-400">Status</TableHead>
+                <TableHead className="text-right font-black uppercase text-[10px] tracking-widest text-slate-400 pr-8">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leads.map((lead: any) => (
+                <TableRow 
+                  key={lead.id} 
+                  className={cn(
+                    "transition-all border-b border-slate-50",
+                    lead.status === "contacted" ? "bg-green-50/80 hover:bg-green-100" : 
+                    lead.status === "enriching" ? "bg-blue-50/50" : "hover:bg-slate-50"
+                  )}
+                >
+                  <TableCell className="py-6 pl-8">
+                    <div className="flex flex-col">
+                      <span className="text-base font-black tracking-tight text-slate-900 truncate max-w-[200px]">{lead.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-bold mt-1 flex items-center gap-1 uppercase tracking-tight">
+                        <MapPin className="h-3 w-3" /> {lead.address.split(',')[0]}
+                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        {lead.website && (
+                          <a href={lead.website} target="_blank" rel="noreferrer" className="p-1.5 bg-slate-100 rounded-md hover:bg-primary/10 hover:text-primary transition-colors">
+                            <Globe className="h-3.5 w-3.5" />
+                          </a>
+                        )}
+                        {lead.phoneNumber && (
+                          <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-primary/40" /> {lead.phoneNumber}
+                          </span>
+                        )}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Buy Score</span>
-                        <div className="flex items-center gap-1">
-                          {lead.email ? (
-                            <span className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
-                              <Mail className="h-3 w-3" /> {lead.email}
-                            </span>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              className="h-5 p-0 text-[10px] font-black text-primary hover:bg-transparent"
-                              onClick={() => handleEnrichLead(lead)}
-                              disabled={enrichingId === lead.id}
-                            >
-                              {enrichingId === lead.id ? "Analyzing..." : "Find Email"}
-                            </Button>
-                          )}
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "h-10 w-10 rounded-xl flex items-center justify-center border-2",
+                          (lead.score || 0) > 70 ? "border-green-200 bg-green-50 text-green-700" :
+                          (lead.score || 0) > 40 ? "border-yellow-200 bg-yellow-50 text-yellow-700" :
+                          "border-slate-100 bg-slate-50 text-slate-400"
+                        )}>
+                          <span className="text-sm font-black">{lead.score || '--'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Buy Score</span>
+                          <div className="flex items-center gap-1">
+                            {lead.email ? (
+                              <span className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
+                                <Mail className="h-3 w-3" /> {lead.email}
+                              </span>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                className="h-5 p-0 text-[10px] font-black text-primary hover:bg-transparent"
+                                onClick={() => handleEnrichLead(lead)}
+                                disabled={enrichingId === lead.id}
+                              >
+                                {enrichingId === lead.id ? "Analyzing..." : "Find Email"}
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </TableCell>
+                  </TableCell>
 
-                <TableCell>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-1">
-                      {lead.techStack?.map((tech: string) => (
-                        <Badge key={tech} variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-500 bg-white">
-                          {tech}
-                        </Badge>
-                      )) || <span className="text-[10px] text-slate-300 italic">No tech detected</span>}
+                  <TableCell>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-1">
+                        {lead.techStack?.map((tech: string) => (
+                          <Badge key={tech} variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-500 bg-white">
+                            {tech}
+                          </Badge>
+                        )) || <span className="text-[10px] text-slate-300 italic">No tech detected</span>}
+                      </div>
+                      <div className="flex gap-2">
+                        {lead.socialLinks?.linkedin && <Linkedin className="h-3.5 w-3.5 text-blue-700 opacity-60" />}
+                        {lead.socialLinks?.facebook && <Facebook className="h-3.5 w-3.5 text-blue-600 opacity-60" />}
+                        {lead.socialLinks?.instagram && <Instagram className="h-3.5 w-3.5 text-pink-600 opacity-60" />}
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      {lead.socialLinks?.linkedin && <Linkedin className="h-3.5 w-3.5 text-blue-700 opacity-60" />}
-                      {lead.socialLinks?.facebook && <Facebook className="h-3.5 w-3.5 text-blue-600 opacity-60" />}
-                      {lead.socialLinks?.instagram && <Instagram className="h-3.5 w-3.5 text-pink-600 opacity-60" />}
-                    </div>
-                  </div>
-                </TableCell>
+                  </TableCell>
 
-                <TableCell>
-                  <Badge 
-                    className={cn(
-                      "font-black uppercase tracking-widest text-[9px] px-2 py-0.5 border-none",
-                      lead.status === "contacted" ? "bg-green-600 text-white" : 
-                      lead.status === "synced" ? "bg-indigo-500 text-white" :
-                      lead.status === "ready" ? "bg-primary text-white" :
-                      "bg-slate-200 text-slate-600"
-                    )}
+                  <TableCell>
+                    <Badge 
+                      className={cn(
+                        "font-black uppercase tracking-widest text-[9px] px-2 py-0.5 border-none",
+                        lead.status === "contacted" ? "bg-green-600 text-white" : 
+                        lead.status === "synced" ? "bg-indigo-500 text-white" :
+                        lead.status === "ready" ? "bg-primary text-white" :
+                        "bg-slate-200 text-slate-600"
+                      )}
+                    >
+                      {lead.status || "new"}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-right pr-8">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 rounded-lg text-slate-300 hover:text-primary transition-colors"
+                        onClick={() => handleEnrichLead(lead)}
+                        disabled={enrichingId === lead.id}
+                      >
+                        <Zap className={cn("h-4 w-4", enrichingId === lead.id && "animate-spin")} />
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="h-8 w-8 rounded-lg text-slate-300 hover:text-destructive"
+                        onClick={() => handleDeleteLead(lead.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* --- MOBILE VIEW: Stacked Cards (Hidden on Desktop) --- */}
+        <div className="block md:hidden p-4 space-y-4 pb-20">
+          {leads.map((lead: any) => (
+            <div key={lead.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm relative">
+              
+              <div className="flex justify-between items-start mb-3">
+                <div className="pr-2">
+                  <h3 className="font-black text-lg text-slate-900 leading-tight mb-1">{lead.name}</h3>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                    <MapPin className="h-3 w-3 shrink-0" /> {lead.address.split(',')[0]}
+                  </div>
+                </div>
+                <Badge className={cn("text-[10px] uppercase font-black tracking-widest shrink-0", 
+                  lead.status === "contacted" ? "bg-green-600 text-white" : 
+                  lead.status === "ready" ? "bg-primary text-white" : "bg-slate-100 text-slate-500"
+                )}>
+                  {lead.status || "new"}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col items-center justify-center text-center">
+                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider mb-1">Buy Score</span>
+                  <span className={cn("text-xl font-black", (lead.score || 0) > 70 ? "text-green-600" : "text-slate-700")}>
+                    {lead.score || '--'}
+                  </span>
+                </div>
+                <div className="flex flex-col justify-center gap-2 overflow-hidden">
+                   {lead.phoneNumber && (
+                     <span className="text-xs font-bold text-slate-600 flex items-center gap-1 truncate">
+                       <Phone className="h-3 w-3 text-primary/60 shrink-0" /> {lead.phoneNumber}
+                     </span>
+                   )}
+                   {lead.website && (
+                     <a href={lead.website} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1 truncate">
+                       <Globe className="h-3 w-3 shrink-0" /> Visit Website
+                     </a>
+                   )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                {lead.email ? (
+                  <span className="text-xs font-bold text-indigo-700 flex items-center gap-1 truncate pr-2">
+                    <Mail className="h-3 w-3 shrink-0" /> {lead.email}
+                  </span>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="h-8 text-xs font-bold"
+                    onClick={() => handleEnrichLead(lead)}
+                    disabled={enrichingId === lead.id}
                   >
-                    {lead.status || "new"}
-                  </Badge>
-                </TableCell>
+                    <Zap className={cn("h-3 w-3 mr-1", enrichingId === lead.id && "animate-spin")} />
+                    {enrichingId === lead.id ? "Analyzing..." : "Find Email"}
+                  </Button>
+                )}
 
-                <TableCell className="text-right pr-8">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-8 w-8 rounded-lg text-slate-300 hover:text-primary transition-colors"
-                      onClick={() => handleEnrichLead(lead)}
-                      disabled={enrichingId === lead.id}
-                    >
-                      <Zap className={cn("h-4 w-4", enrichingId === lead.id && "animate-spin")} />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="h-8 w-8 rounded-lg text-slate-300 hover:text-destructive"
-                      onClick={() => handleDeleteLead(lead.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  className="h-8 w-8 rounded-lg text-slate-400 hover:text-destructive shrink-0 bg-slate-50"
+                  onClick={() => handleDeleteLead(lead.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
+    
   );
 }
