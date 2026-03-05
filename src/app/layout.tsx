@@ -4,6 +4,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
+import {Analytics} from '@vercel/analytics/react';
+
 
 export const metadata: Metadata = {
   title: 'ClientsFinding | Professional Lead Generation',
@@ -29,6 +31,7 @@ export default function RootLayout({
           {children}
         </FirebaseClientProvider>
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
