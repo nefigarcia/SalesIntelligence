@@ -2,19 +2,17 @@
 
 import { useState } from "react";
 import { Business } from "@/app/page";
-import { 
-  Star, 
-  MapPin, 
-  Phone, 
-  ArrowRight, 
-  Globe, 
-  Mail, 
-  CheckCircle2, 
-  Loader2, 
-  PlusCircle, 
-  ChevronDown, 
+import {
+  Star,
+  MapPin,
+  Phone,
+  Globe,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
   X,
-  Sparkles
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +30,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+
+// Deterministic avatar color from business name
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-violet-500", "bg-rose-500", "bg-orange-500",
+  "bg-teal-500", "bg-cyan-600", "bg-indigo-500", "bg-pink-500",
+  "bg-emerald-500", "bg-amber-500",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 interface BusinessListProps {
   results: Business[];
@@ -42,14 +52,6 @@ interface BusinessListProps {
 }
 
 export function BusinessList({ results, isLoading, onSelect }: BusinessListProps) {
-  // Render-time debug: log summary of incoming results to trace lifecycle
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.debug('BusinessList render - results', results.map(r => ({ id: r.id, rating: r.rating, phone: r.phone })));
-    } catch (e) {
-      console.debug('BusinessList render - results (unable to map)', e);
-    }
-  }
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
@@ -67,76 +69,36 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
   const isAnySelected = selectedIds.length > 0;
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(results.map((b) => b.id));
-    }
+    setSelectedIds(allSelected ? [] : results.map(b => b.id));
   };
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const handleBulkSave = async (listId: string = "general", listName: string = "General Leads") => {
+  const handleBulkSave = async (listId = "general", listName = "General Leads") => {
     if (!db || !user || selectedIds.length === 0) return;
-
     setIsBulkSaving(true);
-    const selectedBusinesses = results.filter((b) => selectedIds.includes(b.id));
+    const selected = results.filter(b => selectedIds.includes(b.id));
     const listRef = doc(db, "users", user.uid, "leadLists", listId);
-
     try {
-      await runTransaction(db, async (transaction) => {
-        const listDoc = await transaction.get(listRef);
-        
+      await runTransaction(db, async (tx) => {
+        const listDoc = await tx.get(listRef);
         if (!listDoc.exists()) {
-          transaction.set(listRef, {
-            id: listId,
-            name: listName,
-            userId: user.uid,
-            count: selectedBusinesses.length,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
+          tx.set(listRef, { id: listId, name: listName, userId: user.uid, count: selected.length, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         } else {
-          transaction.update(listRef, {
-            count: increment(selectedBusinesses.length),
-            updatedAt: serverTimestamp()
-          });
+          tx.update(listRef, { count: increment(selected.length), updatedAt: serverTimestamp() });
         }
-        
-        selectedBusinesses.forEach((business) => {
-          const leadRef = doc(db, "users", user.uid, "leadLists", listId, "leads", business.id);
-          transaction.set(leadRef, {
-            id: business.id,
-            name: business.name,
-            address: business.address,
-            phoneNumber: business.phone,
-            category: business.category,
-            rating: business.rating,
-            reviews: business.reviews,
-            website: business.website || "",
-            email: business.email || "",
-            savedAt: serverTimestamp(),
-          });
+        selected.forEach(b => {
+          const leadRef = doc(db, "users", user.uid, "leadLists", listId, "leads", b.id);
+          tx.set(leadRef, { id: b.id, name: b.name, address: b.address, phoneNumber: b.phone, category: b.category, rating: b.rating, reviews: b.reviews, website: b.website || "", email: b.email || "", status: "new", savedAt: serverTimestamp() });
         });
       });
-
-      toast({
-        title: "Leads Saved Successfully",
-        description: `Successfully added ${selectedBusinesses.length} leads to "${listName}".`,
-      });
+      toast({ title: `${selected.length} leads saved to "${listName}"` });
       setSelectedIds([]);
-    } catch (err: any) {
-      console.error("Bulk save error:", err);
-      const permissionError = new FirestorePermissionError({
-        path: listRef.path,
-        operation: 'write',
-      });
-      errorEmitter.emit('permission-error', permissionError);
+    } catch {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({ path: listRef.path, operation: 'write' }));
     } finally {
       setIsBulkSaving(false);
     }
@@ -144,21 +106,18 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 bg-white h-full">
-        <div className="flex flex-col gap-2">
-          <Skeleton className="h-8 w-1/3 rounded-lg" />
-          <Skeleton className="h-4 w-1/2 rounded-lg" />
+      <div className="p-4 space-y-3 bg-white h-full">
+        <div className="flex flex-col gap-1.5 mb-4">
+          <Skeleton className="h-5 w-32 rounded-lg" />
+          <Skeleton className="h-3.5 w-20 rounded-lg" />
         </div>
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex flex-col gap-3 p-5 border rounded-2xl shadow-sm">
-            <div className="flex justify-between">
-              <Skeleton className="h-6 w-3/4 rounded-lg" />
-              <Skeleton className="h-6 w-12 rounded-lg" />
-            </div>
-            <Skeleton className="h-4 w-1/2 rounded-lg" />
-            <div className="flex gap-2">
-              <Skeleton className="h-5 w-20 rounded-full" />
-              <Skeleton className="h-5 w-20 rounded-full" />
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="flex gap-3 p-3.5 border border-slate-100 rounded-xl">
+            <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4 rounded" />
+              <Skeleton className="h-3 w-1/2 rounded" />
+              <Skeleton className="h-3 w-1/3 rounded" />
             </div>
           </div>
         ))}
@@ -168,149 +127,143 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
 
   if (results.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center h-full p-12 text-center bg-slate-50/30">
-        <div className="h-20 w-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mb-6 animate-pulse">
-          <Sparkles className="h-10 w-10 text-primary/30" />
+      <div className="flex-1 flex flex-col items-center justify-center h-full p-10 text-center bg-white">
+        <div className="h-14 w-14 bg-primary/5 rounded-2xl flex items-center justify-center mb-4">
+          <Sparkles className="h-7 w-7 text-primary/40" />
         </div>
-        <h3 className="text-xl font-bold mb-2">Start Finding Leads</h3>
-        <p className="text-sm text-muted-foreground max-w-[240px]">
-          Enter a business category and city above to generate high-quality B2B leads.
+        <h3 className="text-base font-bold mb-1.5 text-slate-800">Find your next clients</h3>
+        <p className="text-sm text-muted-foreground max-w-[220px] leading-relaxed">
+          Search for a business type and city to generate leads.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden relative bg-white">
-      <div className="p-6 border-b shrink-0 bg-slate-50/30">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-extrabold flex items-center gap-2">
-            Market Results
-            <Badge variant="secondary" className="bg-primary/10 text-primary border-none font-bold">
-              {results.length} Found
-            </Badge>
-          </h2>
-        </div>
-        <div className="flex items-center gap-3 py-2 px-3 bg-white rounded-xl border border-slate-200/60 shadow-sm">
-          <Checkbox 
-            id="select-all" 
-            checked={allSelected} 
-            onCheckedChange={toggleSelectAll}
-            className="rounded-md border-slate-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-5 w-5"
-          />
-          <label 
-            htmlFor="select-all" 
-            className="text-xs font-bold text-slate-700 cursor-pointer select-none uppercase tracking-wider"
-          >
-            Select All Results
-          </label>
-        </div>
+    <div className="flex flex-col h-full overflow-hidden bg-white relative">
+      {/* List header */}
+      <div className="px-4 py-3 border-b shrink-0 flex items-center gap-3">
+        <Checkbox
+          id="select-all"
+          checked={allSelected}
+          onCheckedChange={toggleSelectAll}
+          className="rounded border-slate-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-4 w-4"
+        />
+        <label htmlFor="select-all" className="text-xs font-semibold text-slate-500 cursor-pointer select-none flex-1">
+          {isAnySelected ? `${selectedIds.length} selected` : `${results.length} results`}
+        </label>
       </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32 w-full">
-          {results.map((b) => (
-            <div 
-              key={b.id} 
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5 pb-28">
+        {results.map((b) => {
+          const isSelected = selectedIds.includes(b.id);
+          const initials = b.name.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
+          const avatarColor = getAvatarColor(b.name);
+
+          return (
+            <div
+              key={b.id}
               onClick={() => onSelect(b)}
               className={cn(
-                "group border-2 p-5 pr-8 rounded-2xl cursor-pointer transition-all shadow-sm bg-white relative flex gap-4 overflow-visible",
-                selectedIds.includes(b.id) ? "border-primary/40 bg-primary/[0.03] shadow-md" : "border-slate-50 hover:border-primary/20 hover:bg-slate-50 hover:shadow-md"
+                "group flex items-start gap-3 p-3.5 rounded-xl cursor-pointer transition-all border",
+                isSelected
+                  ? "border-primary/30 bg-primary/[0.04]"
+                  : "border-transparent hover:border-slate-200 hover:bg-slate-50"
               )}
             >
-              <div className="flex flex-col pt-1" onClick={(e) => toggleSelect(b.id, e)}>
-                <Checkbox 
-                  checked={selectedIds.includes(b.id)}
-                  className="rounded-md border-slate-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-5 w-5 shadow-none"
+              {/* Checkbox */}
+              <div className="pt-0.5 shrink-0" onClick={e => toggleSelect(b.id, e)}>
+                <Checkbox
+                  checked={isSelected}
+                  className="rounded border-slate-200 data-[state=checked]:bg-primary data-[state=checked]:border-primary h-4 w-4"
                 />
               </div>
-              
+
+              {/* Avatar */}
+              <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0", avatarColor)}>
+                {initials || "?"}
+              </div>
+
+              {/* Content */}
               <div className="flex-1 min-w-0">
-                {/* Use grid so title and rating are independent of scrollbar width changes */}
-                <div className="flex justify-between items-start gap-3">
-                  <h3 className="font-bold text-lg group-hover:text-primary transition-colors tracking-tight break-words whitespace-normal">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <span className="font-semibold text-sm text-slate-900 leading-snug group-hover:text-primary transition-colors line-clamp-1">
                     {b.name}
-                  </h3>
-                  {/* The debug badge is absolutely positioned so it will not be pushed
-                      outside the card when the title grows; the card is already
-                      positioned relative which creates a local stacking context. */}
-                   {b.rating != null && (
-    <div className="flex items-center gap-1 shrink-0 bg-yellow-50 py-0.5 px-2 rounded-lg border border-yellow-100">
-      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-      <span className="text-[11px] font-bold text-yellow-700 tabular-nums">
-        {b.rating.toFixed(1)}
-      </span>
-    </div>
-  )}
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-start gap-2 text-xs text-muted-foreground font-medium">
-                    <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-400" />
-                    <span className="line-clamp-1">{b.address}</span>
-                  </div>
-                  
-                  {/* Phone Section */}
-                  <div className="flex items-center gap-2 text-xs text-slate-600 font-semibold">
-                    <Phone className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                    <span className={cn(b.phone === "Loading phone..." && "animate-pulse opacity-50")}>
-                      {b.phone}
-                    </span>
-                  </div>
-
-                  {/* Website Section */}
-                  {b.website ? (
-                    <div className="flex items-center gap-2 text-xs text-primary font-bold">
-                      <Globe className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{b.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
-                    </div>
-                  ) : null}
-
-                  {/* Email Section */}
-                  {b.email && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                      <span className="truncate">{b.email}</span>
+                  </span>
+                  {b.rating != null && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs font-bold text-slate-600 tabular-nums">{b.rating.toFixed(1)}</span>
+                      {b.reviews != null && (
+                        <span className="text-[10px] text-slate-400 ml-0.5">({b.reviews})</span>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100/80">
-                  <Badge variant="outline" className="font-bold text-[10px] text-slate-500 border-slate-200 bg-slate-50 uppercase tracking-widest px-2 py-0.5">
-                    {b.category}
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-1.5">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{b.address}</span>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  {b.phone && b.phone !== "Loading phone..." && (
+                    <span className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                      <Phone className="h-3 w-3 text-slate-400" />
+                      {b.phone}
+                    </span>
+                  )}
+                  {b.phone === "Loading phone..." && (
+                    <span className="flex items-center gap-1 text-[11px] text-slate-300 animate-pulse">
+                      <Phone className="h-3 w-3" /> Loading...
+                    </span>
+                  )}
+                  {b.website && (
+                    <span className="flex items-center gap-1 text-[11px] text-primary/70 font-medium truncate max-w-[120px]">
+                      <Globe className="h-3 w-3 shrink-0" />
+                      {b.website.replace(/^https?:\/\//, '').replace(/\/$/, '').replace(/^www\./, '')}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between mt-2">
+                  <Badge variant="outline" className="text-[9px] font-semibold text-slate-400 border-slate-200 bg-slate-50/80 px-1.5 py-0 capitalize">
+                    {(b.category || "Business").replace(/_/g, " ")}
                   </Badge>
-                  <div className="text-primary text-xs font-extrabold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                    View Detail <ArrowRight className="h-3 w-3" />
-                  </div>
+                  <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all translate-x-1 group-hover:translate-x-0">
+                    View <ArrowRight className="h-2.5 w-2.5" />
+                  </span>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-      {/* Bulk Action Bar */}
+      {/* Bulk save bar */}
       {isAnySelected && (
-        <div className="absolute bottom-8 left-4 right-4 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl flex items-center justify-between border border-white/10 backdrop-blur-md">
-            <div className="flex items-center gap-4">
-              <div className="bg-primary h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm">
+        <div className="absolute bottom-4 left-3 right-3 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-slate-900 text-white rounded-2xl px-4 py-3 shadow-2xl flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary h-8 w-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0">
                 {selectedIds.length}
               </div>
-              <div className="flex flex-col">
-                <div className="text-sm font-bold leading-tight">Leads Selected</div>
-                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Ready to save</div>
-              </div>
+              <span className="text-sm font-semibold">leads selected</span>
             </div>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 rounded-xl" disabled={isBulkSaving}>
-                    {isBulkSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CheckCircle2 className="h-5 w-5 mr-2" />}
-                    Save to List
-                    <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                  <Button size="sm" className="h-8 px-4 bg-primary hover:bg-primary/90 font-semibold rounded-lg text-xs" disabled={isBulkSaving}>
+                    {isBulkSaving
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      : <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />}
+                    Save
+                    <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuContent align="end" className="w-52">
                   <DropdownMenuItem onClick={() => handleBulkSave("general", "General Leads")}>
                     General Leads
                   </DropdownMenuItem>
@@ -321,15 +274,13 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setSelectedIds([])} 
-                className="text-slate-400 hover:text-white h-11 w-11 rounded-xl"
+
+              <button
+                onClick={() => setSelectedIds([])}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               >
-                <X className="h-5 w-5" />
-              </Button>
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>

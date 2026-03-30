@@ -243,18 +243,29 @@ function DashboardContent() {
           }} 
         />
         <SidebarInset className="flex flex-col h-screen">
-          <header className="flex h-20 shrink-0 items-center border-b px-6 bg-white shadow-sm z-20">
-            <div className="flex items-center gap-3 mr-3">
-              {/* Mobile sidebar trigger */}
-              <SidebarTrigger className="md:hidden" />
-            </div>
-            <div className="flex-1">
-              <SearchHeader 
-                onSearch={handleSearch} 
-                isLoading={isSearching && searchResults.length === 0} 
-                initialValue={searchParams.get("q") || ""} 
+          <header className="flex h-14 shrink-0 items-center border-b px-4 bg-white z-20 gap-3">
+            <SidebarTrigger className="md:hidden shrink-0" />
+            {activeView === "search" ? (
+              <SearchHeader
+                onSearch={handleSearch}
+                isLoading={isSearching && searchResults.length === 0}
+                initialValue={searchParams.get("q") || ""}
               />
-            </div>
+            ) : (
+              <div className="flex-1 flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  {activeView === "lists" ? "Pipeline Hub" : "Analytics"}
+                </span>
+                {activeView === "lists" && selectedListId && (
+                  <>
+                    <span className="text-slate-300">/</span>
+                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                      {/* list name shown via sidebar state */}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
           </header>
           
           <main className="flex-1 flex flex-row overflow-hidden relative">
