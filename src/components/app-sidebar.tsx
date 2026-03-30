@@ -2,18 +2,18 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Search, 
-  ListOrdered, 
+import {
+  Search,
+  ListOrdered,
   Download,
   PlusCircle,
   FolderOpen,
   LogOut,
   MoreVertical,
   Trash2,
-  FolderPlus,
   Loader2,
-  Table as TableIcon
+  Table as TableIcon,
+  BarChart2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -252,13 +252,23 @@ export function AppSidebar({ activeView, selectedListId, onViewChange }: AppSide
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton 
-                isActive={activeView === "lists"} 
+              <SidebarMenuButton
+                isActive={activeView === "lists"}
                 className="text-sidebar-foreground hover:bg-sidebar-accent/50"
                 onClick={() => onViewChange("lists", null)}
               >
                 <ListOrdered className="h-5 w-5" />
                 <span>Pipeline Hub</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={activeView === "analytics"}
+                className="text-sidebar-foreground hover:bg-sidebar-accent/50"
+                onClick={() => onViewChange("analytics")}
+              >
+                <BarChart2 className="h-5 w-5" />
+                <span>Analytics</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

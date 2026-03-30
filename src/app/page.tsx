@@ -11,6 +11,7 @@ import { BusinessList } from "@/components/business-list";
 import BottomSheet from "@/components/bottom-sheet";
 import { BusinessDetail } from "@/components/business-detail";
 import { SavedLeadsView } from "@/components/saved-leads-view";
+import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -326,9 +327,7 @@ function DashboardContent() {
             ) : activeView === "lists" ? (
               <SavedLeadsView listId={selectedListId} />
             ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                Analytics dashboard coming soon.
-              </div>
+              <AnalyticsDashboard listId={selectedListId} />
             )}
           </main>
         </SidebarInset>
