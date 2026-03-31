@@ -122,9 +122,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
         score: result.score,
         intentSignals: result.intentSignals || [],
         updatedAt: serverTimestamp()
-      };
-
-      handleUpdateStatus(lead.id, updates);
+      });
     } catch (err: any) {
       handleUpdateStatus(lead.id, { status: "new" });
     } finally {
@@ -275,6 +273,8 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
       </div>
 
       <div className="flex-1 overflow-auto custom-scrollbar">
+        {viewMode === "table" && (
+          <div>
         <Table>
           <TableHeader className="bg-white sticky top-0 z-10 shadow-sm">
             <TableRow className="border-b-2">
@@ -416,7 +416,6 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                   No leads match the selected filter.
                 </div>
               )}
-            </div>
 
             {/* MOBILE Cards */}
             <div className="block md:hidden p-4 space-y-4 pb-20">
