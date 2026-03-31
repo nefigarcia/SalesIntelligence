@@ -83,11 +83,11 @@ export function BottomSheet({ children, hasResults = false, className }: BottomS
   return (
     // Use a z-index lower than the header (header uses z-20) so the
     // top header remains interactive when the sheet overlaps it.
-    <div className={cn("fixed inset-x-0 bottom-0 z-10 md:hidden pointer-events-auto", className)} aria-hidden>
+    <div className={cn("fixed inset-x-0 bottom-0 z-10 md:hidden pointer-events-none", className)} aria-hidden>
       <div
         ref={sheetRef}
         style={sheetStyle}
-        className="mx-auto max-w-full rounded-t-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden touch-none"
+        className="mx-auto max-w-full rounded-t-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden touch-none pointer-events-auto"
       >
         {/* handle */}
         <div
