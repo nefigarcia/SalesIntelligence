@@ -14,14 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  MapPin, 
-  Phone, 
-  Trash2, 
-  Mail, 
-  Building2, 
-  Sparkles, 
-  Loader2, 
-  Globe, 
+  MapPin,
+  Phone,
+  Trash2,
+  Mail,
+  Building2,
+  Sparkles,
+  Loader2,
+  Globe,
   ExternalLink,
   Facebook,
   Instagram,
@@ -30,7 +30,9 @@ import {
   Target,
   Zap,
   CheckCircle2,
-  TrendingUp
+  TrendingUp,
+  List,
+  LayoutGrid
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +64,8 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
   const { toast } = useToast();
   const [enrichingId, setEnrichingId] = useState<string | null>(null);
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
   const leadsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -72,7 +76,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     );
   }, [db, user, listId]);
 
-  const { data: leads, isLoading } = useCollection(leadsQuery);
+  const { data: leads, isLoading: loading } = useCollection(leadsQuery);
 
   const filteredLeads = useMemo(() => {
     if (!leads) return [];
