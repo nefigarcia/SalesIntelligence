@@ -335,14 +335,19 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                       {lead.email ? (
                         <span className="text-[11px] font-bold text-indigo-700 truncate">{lead.email}</span>
                       ) : (
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           className="h-5 p-0 text-[10px] font-black text-primary hover:bg-transparent justify-start"
                           onClick={() => handleEnrichLead(lead)}
                           disabled={enrichingId === lead.id}
                         >
                           {enrichingId === lead.id ? "SCRAPING..." : "EMAIL NOT FOUND (FIND)"}
                         </Button>
+                      )}
+                      {lead.phoneNumber && (
+                        <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3 text-primary/60 shrink-0" /> {lead.phoneNumber}
+                        </span>
                       )}
                     </div>
                   </div>
