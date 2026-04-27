@@ -64,6 +64,7 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
   const { toast } = useToast();
   const [enrichingId, setEnrichingId] = useState<string | null>(null);
   const [isBulkEnriching, setIsBulkEnriching] = useState(false);
+  const [callingId, setCallingId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
 
@@ -159,6 +160,28 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
     if (lead.status !== 'synced' && lead.status !== 'contacted') {
       handleUpdateStatus(lead.id, { status: 'contacted' });
       toast({ title: "Status Updated", description: "Prospect marked as contacted." });
+    }
+  };
+
+  const handleCallLead = async (lead: any) => {
+    if (!lead.phoneNumber || callingId === lead.id) return;
+    setCallingId(lead.id);
+    try {
+      const res = await fetch('/api/vapi/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: lead.phoneNumber, leadName: lead.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Call failed');
+      toast({ title: "Calling...", description: `AI agent is connecting to ${lead.name}` });
+      if (lead.status !== 'synced' && lead.status !== 'contacted') {
+        handleUpdateStatus(lead.id, { status: 'contacted' });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Call Failed", description: err.message });
+    } finally {
+      setCallingId(null);
     }
   };
 
@@ -345,9 +368,18 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                         </Button>
                       )}
                       {lead.phoneNumber && (
-                        <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1 mt-0.5">
-                          <Phone className="h-3 w-3 text-primary/60 shrink-0" /> {lead.phoneNumber}
-                        </span>
+                        <button
+                          onClick={() => handleCallLead(lead)}
+                          disabled={callingId === lead.id}
+                          className="text-[11px] font-bold text-slate-600 flex items-center gap-1 mt-0.5 hover:text-primary transition-colors group disabled:opacity-60"
+                          title="Call with AI agent"
+                        >
+                          {callingId === lead.id
+                            ? <Loader2 className="h-3 w-3 text-primary shrink-0 animate-spin" />
+                            : <Phone className="h-3 w-3 text-primary/60 shrink-0 group-hover:text-primary" />
+                          }
+                          {lead.phoneNumber}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -455,9 +487,18 @@ export function SavedLeadsView({ listId }: SavedLeadsViewProps) {
                     </div>
                     <div className="flex flex-col justify-center gap-2 overflow-hidden">
                       {lead.phoneNumber && (
-                        <span className="text-xs font-bold text-slate-600 flex items-center gap-1 truncate">
-                          <Phone className="h-3 w-3 text-primary/60 shrink-0" /> {lead.phoneNumber}
-                        </span>
+                        <button
+                          onClick={() => handleCallLead(lead)}
+                          disabled={callingId === lead.id}
+                          className="text-xs font-bold text-slate-600 flex items-center gap-1 truncate hover:text-primary transition-colors group disabled:opacity-60"
+                          title="Call with AI agent"
+                        >
+                          {callingId === lead.id
+                            ? <Loader2 className="h-3 w-3 text-primary shrink-0 animate-spin" />
+                            : <Phone className="h-3 w-3 text-primary/60 shrink-0 group-hover:text-primary" />
+                          }
+                          {lead.phoneNumber}
+                        </button>
                       )}
                       {lead.website && (
                         <a href={lead.website} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary flex items-center gap-1 truncate">
