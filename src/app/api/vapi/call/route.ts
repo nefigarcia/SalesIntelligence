@@ -66,6 +66,17 @@ export async function POST(req: NextRequest) {
           number: customerNumber,
           name: leadName || undefined,
         },
+        voicemailDetection: {
+          provider: 'twilio',
+          enabled: true,
+          voicemailDetectionTypes: [
+            'machine_start',
+            'machine_end_beep',
+            'machine_end_silence',
+            'machine_end_other',
+          ],
+          machineDetectionTimeout: 5,
+        },
         assistant: {
           firstMessage: `Hi, am I speaking with someone from ${leadName || 'your business'}?`,
           model: {
@@ -74,7 +85,15 @@ export async function POST(req: NextRequest) {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional sales development representative calling on behalf of Rosys AI sales team. You are reaching out to ${leadName || 'this business'} to introduce your services helping organizations implement AI(Artificial Intelligence) and optimize their operations and understand their needs. Be concise, warm, and professional. Ask a couple of qualifying questions to understand their current situation. If they are not interested, thank them politely and end the call, if answers are not provided end the call the same if answer the mailbox.`,
+                content: `You are a professional sales development representative calling on behalf of the Rosys AI sales team. You are reaching out to ${leadName || 'this business'} to introduce services that help organizations implement AI and optimize their operations.
+
+CRITICAL RULES — follow these before anything else:
+- If you hear a voicemail greeting, beep, automated message, IVR menu, or any pre-recorded audio, say "Goodbye" immediately and end the call. Do not leave a message.
+- If no one answers within a few seconds, say "Goodbye" and end the call.
+- If you are placed on hold or hear hold music, say "Goodbye" and end the call.
+- Only continue the conversation if a real human answers and engages with you.
+
+If a real person answers: be concise, warm, and professional. Ask one or two qualifying questions to understand their current situation. If they are not interested, thank them politely and end the call.`,
               },
             ],
           },
