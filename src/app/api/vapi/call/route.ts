@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         phoneNumberId,
         customer: {
           number: customerNumber,
-          name: leadName || undefined,
+          name: leadName ? leadName.slice(0, 40) : undefined,
         },
         assistant: {
           voicemailDetection: {
