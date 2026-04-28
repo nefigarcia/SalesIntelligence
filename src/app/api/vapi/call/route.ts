@@ -66,18 +66,18 @@ export async function POST(req: NextRequest) {
           number: customerNumber,
           name: leadName || undefined,
         },
-        voicemailDetection: {
-          provider: 'twilio',
-          enabled: true,
-          voicemailDetectionTypes: [
-            'machine_start',
-            'machine_end_beep',
-            'machine_end_silence',
-            'machine_end_other',
-          ],
-          machineDetectionTimeout: 5,
-        },
         assistant: {
+          voicemailDetection: {
+            provider: 'twilio',
+            enabled: true,
+            voicemailDetectionTypes: [
+              'machine_start',
+              'machine_end_beep',
+              'machine_end_silence',
+              'machine_end_other',
+            ],
+            machineDetectionTimeout: 5,
+          },
           firstMessage: `Hi, am I speaking with someone from ${leadName || 'your business'}?`,
           model: {
             provider: 'openai',
