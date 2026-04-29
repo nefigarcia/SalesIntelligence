@@ -136,8 +136,14 @@ export function BusinessDetail({ business: initialBusiness, onClose }: BusinessD
     const listRef = doc(db, "users", user.uid, "leadLists", listId);
     const leadRef = doc(db, "users", user.uid, "leadLists", listId, "leads", business.id);
     try {
+      let alreadyExists = false;
       await runTransaction(db, async (transaction) => {
-        const listDoc = await transaction.get(listRef);
+        const [listDoc, leadDoc] = await Promise.all([
+          transaction.get(listRef),
+          transaction.get(leadRef),
+        ]);
+        alreadyExists = leadDoc.exists();
+        if (alreadyExists) return;
         if (!listDoc.exists()) {
           transaction.set(listRef, { id: listId, name: listName, userId: user.uid, count: 1, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         } else {
@@ -157,7 +163,11 @@ export function BusinessDetail({ business: initialBusiness, onClose }: BusinessD
           savedAt: serverTimestamp(),
         });
       });
-      toast({ title: "Lead Saved", description: `${business.name} added to "${listName}".` });
+      if (alreadyExists) {
+        toast({ title: "Already saved", description: `${business.name} is already in "${listName}".` });
+      } else {
+        toast({ title: "Lead Saved", description: `${business.name} added to "${listName}".` });
+      }
     } catch {
       const permissionError = new FirestorePermissionError({ path: leadRef.path, operation: 'write', requestResourceData: business });
       errorEmitter.emit('permission-error', permissionError);

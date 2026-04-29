@@ -83,19 +83,33 @@ export function BusinessList({ results, isLoading, onSelect }: BusinessListProps
     const selected = results.filter(b => selectedIds.includes(b.id));
     const listRef = doc(db, "users", user.uid, "leadLists", listId);
     try {
+      let newCount = 0;
       await runTransaction(db, async (tx) => {
-        const listDoc = await tx.get(listRef);
+        const leadRefs = selected.map(b => doc(db, "users", user.uid, "leadLists", listId, "leads", b.id));
+        const [listDoc, ...leadDocs] = await Promise.all([
+          tx.get(listRef),
+          ...leadRefs.map(ref => tx.get(ref)),
+        ]);
+        const newLeads = selected.filter((_, i) => !leadDocs[i].exists());
+        newCount = newLeads.length;
+        if (newCount === 0) return;
         if (!listDoc.exists()) {
-          tx.set(listRef, { id: listId, name: listName, userId: user.uid, count: selected.length, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+          tx.set(listRef, { id: listId, name: listName, userId: user.uid, count: newCount, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         } else {
-          tx.update(listRef, { count: increment(selected.length), updatedAt: serverTimestamp() });
+          tx.update(listRef, { count: increment(newCount), updatedAt: serverTimestamp() });
         }
-        selected.forEach(b => {
+        newLeads.forEach(b => {
           const leadRef = doc(db, "users", user.uid, "leadLists", listId, "leads", b.id);
           tx.set(leadRef, { id: b.id, name: b.name, address: b.address, phoneNumber: b.phone, category: b.category, rating: b.rating, reviews: b.reviews, website: b.website || "", email: b.email || "", status: "new", savedAt: serverTimestamp() });
         });
       });
-      toast({ title: `${selected.length} leads saved to "${listName}"` });
+      if (newCount === 0) {
+        toast({ title: "Already saved", description: "All selected leads are already in this list." });
+      } else if (newCount < selected.length) {
+        toast({ title: `${newCount} leads saved to "${listName}"`, description: `${selected.length - newCount} were already in the list.` });
+      } else {
+        toast({ title: `${newCount} leads saved to "${listName}"` });
+      }
       setSelectedIds([]);
     } catch {
       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: listRef.path, operation: 'write' }));

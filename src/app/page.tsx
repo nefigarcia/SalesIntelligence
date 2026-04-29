@@ -46,6 +46,7 @@ function DashboardContent() {
   const isMobile = useIsMobile();
   const map = useMap();
   const placesLibrary = useMapsLibrary("places");
+  const geocodingLibrary = useMapsLibrary("geocoding");
 
   const [activeView, setActiveView] = useState<ViewState>("search");
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -90,8 +91,17 @@ function DashboardContent() {
     params.set("q", fullQuery);
     router.replace(`${pathname}?${params.toString()}`);
 
+    if (!useCurrentView && geocodingLibrary) {
+      const geocoder = new geocodingLibrary.Geocoder();
+      geocoder.geocode({ address: fullQuery }, (results, status) => {
+        if (status === "OK" && results && results[0]?.geometry?.viewport) {
+          map.fitBounds(results[0].geometry.viewport);
+        }
+      });
+    }
+
     const service = new placesLibrary.PlacesService(map);
-    
+
     const request: google.maps.places.TextSearchRequest = {
       query: fullQuery,
       location: useCurrentView ? map.getCenter() : undefined,
@@ -141,12 +151,6 @@ function DashboardContent() {
           }
         }
         
-        if (!useCurrentView && businesses.length > 0) {
-          const firstResult = businesses[0];
-          setMapCenter({ lat: firstResult.lat, lng: firstResult.lng });
-          setZoom(13);
-        }
-
         // Deep enrich the results with Details (Phone/Website)
 
         toast({
@@ -220,7 +224,7 @@ function DashboardContent() {
         setIsSearching(false);
       }
     });
-  }, [placesLibrary, map, searchParams, router, pathname, toast]);
+  }, [placesLibrary, geocodingLibrary, map, searchParams, router, pathname, toast]);
 
   useEffect(() => {
     const queryParam = searchParams.get("q");
