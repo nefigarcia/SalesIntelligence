@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
             ],
             machineDetectionTimeout: 5,
           },
-          firstMessage: `Hi, this is Isabella, an AI assistant calling on behalf of Rosys AI. Am I speaking with someone from ${leadName || 'your business'}?`,
+          firstMessage: `Hi, am I speaking with someone from ${leadName || 'your business'}?`,
           model: {
             provider: 'openai',
             model: 'gpt-4o-mini',
